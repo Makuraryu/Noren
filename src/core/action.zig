@@ -32,6 +32,11 @@ pub const ResizePane = struct {
     viewport_width: u16,
 };
 
+pub const RenameSession = struct {
+    session_id: ids.SessionId,
+    name: []const u8,
+};
+
 pub const AttachClient = struct {
     client_id: ids.ClientId,
     session_id: ids.SessionId,
@@ -59,6 +64,7 @@ pub const Action = union(enum) {
         session_id: ids.SessionId,
         direction: model.Direction,
     },
+    rename_session: RenameSession,
 
     attach_client: AttachClient,
     detach_client: ids.ClientId,

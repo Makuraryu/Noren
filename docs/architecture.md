@@ -58,6 +58,8 @@ running → closing_hup → closing_term → closing_kill → draining → remov
 
 The final Pane removes its Workspace; the final Workspace ends its Session.
 Client detach only severs the attachment and never removes Pane state.
+Attach/detach targets a Session as a group: all Workspaces, Pane PTYs and
+terminal surfaces remain Server-owned while no Client is attached.
 
 ## M4 byte path
 

@@ -38,6 +38,18 @@ pub fn nowMillis() u64 {
     return c.noren_monotonic_millis();
 }
 
+pub fn wallClockMinute() u64 {
+    return c.noren_wall_clock_minute();
+}
+
+pub fn localTimeHhmm(buffer: []u8) ![]const u8 {
+    if (buffer.len < 6) return error.BufferTooSmall;
+    if (c.noren_format_local_hhmm(buffer.ptr, buffer.len) != 0) {
+        return error.LocalTimeUnavailable;
+    }
+    return buffer[0..5];
+}
+
 test "poll rejects mismatched buffers" {
     var ready: [1]Ready = undefined;
     try std.testing.expectError(
@@ -48,4 +60,11 @@ test "poll rejects mismatched buffers" {
 
 test "monotonic clock is available for reactor deadlines" {
     try std.testing.expect(nowMillis() > 0);
+}
+
+test "local status time uses HH:MM" {
+    var buffer: [6]u8 = undefined;
+    const value = try localTimeHhmm(&buffer);
+    try std.testing.expectEqual(@as(usize, 5), value.len);
+    try std.testing.expectEqual(@as(u8, ':'), value[2]);
 }

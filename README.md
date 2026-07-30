@@ -2,13 +2,13 @@
 
 Noren is a scrolling terminal multiplexer built around horizontal workspaces.
 
-This repository contains Noren `0.4.0`, the completed **M0–M4
+This repository contains Noren `0.4.1`, the completed **M0–M4
 persistent Server, horizontal Pane and Workspace milestones** from
 [`Noren-Agent-开发规范.md`](Noren-Agent-%E5%BC%80%E5%8F%91%E8%A7%84%E8%8C%83.md).
 It runs a shell or command in a Server-owned PTY, parses terminal output with
 pinned libvterm, and lets a client detach and later recover the latest screen.
 
-## What works in 0.4.0
+## What works in 0.4.1
 
 - Monotonic stable IDs for Sessions, Workspaces, Panes, Clients, Layers and
   asynchronous events.
@@ -42,6 +42,10 @@ pinned libvterm, and lets a client detach and later recover the latest screen.
 - Down-inserted Workspaces with independent focus/camera state, automatic
   empty-Workspace removal and `workspace:pane` status numbering.
 - Reactor-driven asynchronous Pane close escalation without blocking sleeps.
+- A Nord truecolor status bar with separate `Ctrl+b`, Session, local time and
+  `workspace:pane` capsules.
+- Interactive Session rename with the new name immediately becoming the
+  attach target.
 
 The current runtime intentionally permits one Server-owned Session and one
 attached Client at a time. Multi-Client and multi-Session switching are M5.
@@ -91,9 +95,21 @@ Inside a Session, ordinary bytes go to the Pane. Prefix keys are:
 - `Ctrl-b`, then `n`: create a Workspace below and focus its first Pane.
 - `Ctrl-b`, then `x`: asynchronously close the focused Pane.
 - `Ctrl-b`, then `d`: detach; the command keeps running.
+- `Ctrl-b`, then `,`: enter a new Session name; `Enter` confirms and `Esc`
+  cancels.
 - `Ctrl-b`, then `Ctrl-b`: send a literal `Ctrl-b` to the command.
 
 Unimplemented reserved prefix commands ring the terminal bell.
+
+Pane width is absolute and independent. Changing the focused Pane with `H/L`
+does not squeeze or resize neighboring Panes; the horizontal camera moves only
+when necessary to keep the focus visible.
+
+Attach and detach operate at Session scope. A Client attaches to one Session
+and sees that Session's active Workspace and all of its Pane state. Detaching
+only removes the Client view: every Workspace, Pane, PTY and child process in
+that Session stays in the Server and continues running. Reattaching the Session
+restores the whole group.
 
 ## Project rules
 

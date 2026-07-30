@@ -24,6 +24,7 @@ pub const Command = enum {
     resize_narrower,
     resize_wider,
     new_workspace,
+    rename_session,
     detach,
     sessions,
     command_prompt,
@@ -61,6 +62,7 @@ pub const Router = struct {
                     'H' => .resize_narrower,
                     'L' => .resize_wider,
                     'n' => .new_workspace,
+                    ',' => .rename_session,
                     'd' => .detach,
                     's' => .sessions,
                     ':' => .command_prompt,
@@ -105,4 +107,6 @@ test "prefix router forwards ordinary bytes and maps commands" {
     try std.testing.expect(router.feed(0x1b) == .wait);
     try std.testing.expect(router.feed('[') == .wait);
     try std.testing.expect(router.feed('C').command == .focus_right);
+    try std.testing.expect(router.feed(0x02) == .wait);
+    try std.testing.expect(router.feed(',').command == .rename_session);
 }

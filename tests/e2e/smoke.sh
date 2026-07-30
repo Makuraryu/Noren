@@ -44,7 +44,7 @@ case "$(uname -s)" in
 esac
 
 strings "$capture_file" | grep -q 'hello'
-strings "$capture_file" | grep -q 'smoke 1:1'
+strings "$capture_file" | grep -q 'session:smoke'
 if strings "$capture_file" | grep -q 'RESTORE_FAILED'; then
     printf 'terminal mode was not restored\n' >&2
     exit 1
@@ -54,7 +54,7 @@ if command -v nvim >/dev/null 2>&1 && command -v expect >/dev/null 2>&1; then
     export NOREN_E2E_NVIM="$(command -v nvim)"
     export NOREN_E2E_CAPTURE="$nvim_capture_file"
     expect "$e2e_dir/nvim.exp" >"$nvim_stdout_file"
-    strings "$nvim_capture_file" | grep -q 'nvim-smoke 1:1'
+    strings "$nvim_capture_file" | grep -q 'session:nvim-smoke'
     if strings "$nvim_capture_file" | grep -q 'noren:'; then
         printf 'nvim lifecycle produced a Noren runtime error\n' >&2
         exit 1
@@ -62,7 +62,7 @@ if command -v nvim >/dev/null 2>&1 && command -v expect >/dev/null 2>&1; then
 
     export NOREN_E2E_DETACH_CAPTURE="$detach_capture_file"
     expect "$e2e_dir/detach_nvim.exp" >"$detach_stdout_file"
-    strings "$detach_capture_file" | grep -q 'persisted-nvim 1:1'
+    strings "$detach_capture_file" | grep -q 'session:persisted-nvim'
     if strings "$detach_capture_file" | grep -q 'noren:'; then
         printf 'Nvim detach/reattach produced a Noren runtime error\n' >&2
         exit 1
@@ -70,7 +70,7 @@ if command -v nvim >/dev/null 2>&1 && command -v expect >/dev/null 2>&1; then
 
     export NOREN_E2E_MULTI_CAPTURE="$multi_capture_file"
     expect "$e2e_dir/multi_workspace.exp" >"$multi_stdout_file"
-    strings "$multi_capture_file" | grep -q 'multi 1:1'
+    strings "$multi_capture_file" | grep -q 'session:multi-renamed'
     if strings "$multi_capture_file" | grep -q 'noren:'; then
         printf 'multi-Pane/Workspace lifecycle produced a runtime error\n' >&2
         exit 1

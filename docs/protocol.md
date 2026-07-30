@@ -20,7 +20,7 @@ and multiple frames delivered in one read. It validates magic and length before
 allocating a payload. Control messages use validated UTF-8 JSON; raw input
 and render messages remain byte payloads.
 
-Protocol version in Noren 0.4.0 remains `1.0`. M4 adds structured
-`command_request` messages for Pane and Workspace actions to the M2
+Protocol version in Noren 0.4.1 remains `1.0`. M4 adds structured
+`command_request` messages for Pane, Workspace and Session rename actions to the M2
 `hello`/`welcome`, `attach_request`/`attached`, resize, input, render, detach
 and ping/pong messages over an owner-only Unix socket.

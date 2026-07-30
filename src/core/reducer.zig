@@ -54,6 +54,7 @@ pub fn apply(
         .focus_pane => |data| try focusPane(server, data),
         .new_workspace => |data| try newWorkspace(allocator, server, data, effects),
         .focus_workspace => |data| try focusWorkspace(server, data.session_id, data.direction),
+        .rename_session => |data| try renameSession(allocator, server, data),
         .attach_client => |data| try attachClient(allocator, server, data, effects),
         .detach_client => |client_id| try detachClient(
             allocator,
@@ -314,6 +315,28 @@ fn focusWorkspace(
         },
         else => return error.InvalidDirection,
     }
+}
+
+fn renameSession(
+    allocator: std.mem.Allocator,
+    server: *model.ServerModel,
+    data: action_mod.RenameSession,
+) !void {
+    try model.validateSessionName(data.name);
+    const session = server.sessions.getPtr(data.session_id) orelse
+        return error.SessionNotFound;
+    var iterator = server.sessions.valueIterator();
+    while (iterator.next()) |candidate| {
+        if (candidate.id != data.session_id and
+            std.mem.eql(u8, candidate.name, data.name))
+        {
+            return error.DuplicateSessionName;
+        }
+    }
+    if (std.mem.eql(u8, session.name, data.name)) return;
+    const owned_name = try allocator.dupe(u8, data.name);
+    allocator.free(session.name);
+    session.name = owned_name;
 }
 
 fn removePane(
@@ -577,6 +600,43 @@ fn clampCamera(
         workspace.camera_x,
         0,
         @max(@as(i64, 0), world_width - viewport_width),
+    );
+}
+
+test "session rename replaces the owned label through the reducer" {
+    const allocator = std.testing.allocator;
+    var server = model.ServerModel.init();
+    defer server.deinit(allocator);
+    const session_id = try server.createSession(allocator, "before", 80, 24);
+    var effects: std.ArrayList(effect_mod.Effect) = .empty;
+    defer effects.deinit(allocator);
+
+    try apply(
+        allocator,
+        &server,
+        .{ .server = {} },
+        .{ .rename_session = .{
+            .session_id = session_id,
+            .name = "after",
+        } },
+        &effects,
+    );
+    try std.testing.expectEqualStrings(
+        "after",
+        server.sessions.get(session_id).?.name,
+    );
+    try std.testing.expectError(
+        error.InvalidSessionName,
+        apply(
+            allocator,
+            &server,
+            .{ .server = {} },
+            .{ .rename_session = .{
+                .session_id = session_id,
+                .name = "bad/name",
+            } },
+            &effects,
+        ),
     );
 }
 

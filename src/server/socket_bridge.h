@@ -43,6 +43,8 @@ int noren_poll_many(
     uint8_t *ready
 );
 uint64_t noren_monotonic_millis(void);
+uint64_t noren_wall_clock_minute(void);
+int noren_format_local_hhmm(char *buffer, size_t capacity);
 int noren_socket_close(int fd);
 int noren_socket_remove(const char *path);
 unsigned long noren_user_id(void);

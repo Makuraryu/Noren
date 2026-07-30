@@ -17,6 +17,7 @@ pub const Attached = struct {
 
 pub const Command = struct {
     command: []const u8,
+    value: ?[]const u8 = null,
 };
 
 pub fn encode(allocator: std.mem.Allocator, value: anytype) ![]u8 {

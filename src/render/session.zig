@@ -29,6 +29,7 @@ pub const Renderer = struct {
         outer_cols: u16,
         outer_rows: u16,
         session_name: []const u8,
+        time_text: []const u8,
         workspace_number: usize,
         pane_number: usize,
         force_full: bool,
@@ -79,6 +80,7 @@ pub const Renderer = struct {
             surfaces,
             focused_pane,
             session_name,
+            time_text,
             workspace_number,
             pane_number,
         );

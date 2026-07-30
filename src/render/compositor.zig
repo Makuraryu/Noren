@@ -19,6 +19,13 @@ pub const PaneSurfaceEntry = struct {
     surface: PaneSurface,
 };
 
+pub const StatusInfo = struct {
+    session_name: []const u8,
+    time_text: []const u8,
+    workspace_number: usize,
+    pane_number: usize,
+};
+
 pub fn drawWorkspace(
     canvas: *Canvas,
     placements: []const placement_mod.Placement,
@@ -32,13 +39,12 @@ pub fn drawWorkspace(
         drawPaneBorder(canvas, placement, placement.pane_index == focused_pane);
     }
     if (canvas.height > 0) {
-        var status_buffer: [256]u8 = undefined;
-        const status = try std.fmt.bufPrint(
-            &status_buffer,
-            "{s} {d}:{d}",
-            .{ session_name, workspace_number, pane_number },
-        );
-        drawText(canvas, 0, canvas.height - 1, status);
+        try drawStatusBar(canvas, canvas.height - 1, .{
+            .session_name = session_name,
+            .time_text = "--:--",
+            .workspace_number = workspace_number,
+            .pane_number = pane_number,
+        });
     }
 }
 
@@ -61,6 +67,7 @@ pub fn drawPaneSurface(
         &surfaces,
         0,
         session_name,
+        "--:--",
         workspace_number,
         pane_number,
     );
@@ -72,6 +79,7 @@ pub fn drawWorkspaceSurfaces(
     surfaces: []const PaneSurfaceEntry,
     focused_pane: usize,
     session_name: []const u8,
+    time_text: []const u8,
     workspace_number: usize,
     pane_number: usize,
 ) !void {
@@ -83,17 +91,12 @@ pub fn drawWorkspaceSurfaces(
         drawClippedSurface(canvas, placement, surface);
     }
     if (canvas.height > 0) {
-        var status_buffer: [256]u8 = undefined;
-        const status = try std.fmt.bufPrint(
-            &status_buffer,
-            "{s} {d}:{d}",
-            .{ session_name, workspace_number, pane_number },
-        );
-        drawText(canvas, 0, canvas.height - 1, status);
-        for (0..canvas.width) |column| {
-            const index = @as(usize, canvas.height - 1) * canvas.width + column;
-            canvas.cells[index].style.inverse = true;
-        }
+        try drawStatusBar(canvas, canvas.height - 1, .{
+            .session_name = session_name,
+            .time_text = time_text,
+            .workspace_number = workspace_number,
+            .pane_number = pane_number,
+        });
     }
 }
 
@@ -179,6 +182,150 @@ fn drawText(canvas: *Canvas, start_x: i32, y: i32, text: []const u8) void {
     }
 }
 
+const Nord = struct {
+    const polar_night = rgb(46, 52, 64);
+    const polar_night_light = rgb(67, 76, 94);
+    const snow_storm = rgb(236, 239, 244);
+    const frost_cyan = rgb(136, 192, 208);
+    const frost_blue = rgb(129, 161, 193);
+    const aurora_green = rgb(163, 190, 140);
+};
+
+fn drawStatusBar(canvas: *Canvas, y: i32, info: StatusInfo) !void {
+    const background = Nord.polar_night;
+    for (0..canvas.width) |column| {
+        canvas.set(
+            @intCast(column),
+            y,
+            styledCell(" ", Nord.snow_storm, background),
+        );
+    }
+
+    var session_buffer: [256]u8 = undefined;
+    const session_text = try std.fmt.bufPrint(
+        &session_buffer,
+        "session:{s}",
+        .{info.session_name},
+    );
+    var workspace_buffer: [64]u8 = undefined;
+    const workspace_text = try std.fmt.bufPrint(
+        &workspace_buffer,
+        "{d}:{d}",
+        .{ info.workspace_number, info.pane_number },
+    );
+
+    var left: i32 = 0;
+    left = drawCapsule(
+        canvas,
+        left,
+        y,
+        "Ctrl+b",
+        Nord.frost_cyan,
+        Nord.polar_night,
+        background,
+    ) + 1;
+    _ = drawCapsule(
+        canvas,
+        left,
+        y,
+        session_text,
+        Nord.frost_blue,
+        Nord.polar_night,
+        background,
+    );
+
+    const workspace_width = capsuleWidth(workspace_text);
+    const workspace_start: i32 = @max(
+        @as(i32, 0),
+        @as(i32, canvas.width) - @as(i32, @intCast(workspace_width)),
+    );
+    const time_start: i32 = @max(
+        @as(i32, 0),
+        workspace_start - 1 -
+            @as(i32, @intCast(capsuleWidth(info.time_text))),
+    );
+    _ = drawCapsule(
+        canvas,
+        time_start,
+        y,
+        info.time_text,
+        Nord.polar_night_light,
+        Nord.snow_storm,
+        background,
+    );
+    _ = drawCapsule(
+        canvas,
+        workspace_start,
+        y,
+        workspace_text,
+        Nord.aurora_green,
+        Nord.polar_night,
+        background,
+    );
+}
+
+fn drawCapsule(
+    canvas: *Canvas,
+    start_x: i32,
+    y: i32,
+    text: []const u8,
+    capsule_color: cell_mod.Color,
+    text_color: cell_mod.Color,
+    background: cell_mod.Color,
+) i32 {
+    var x = start_x;
+    canvas.set(x, y, styledCell("", capsule_color, background));
+    x += 1;
+    canvas.set(x, y, styledCell(" ", text_color, capsule_color));
+    x += 1;
+    x = drawStyledText(canvas, x, y, text, text_color, capsule_color);
+    canvas.set(x, y, styledCell(" ", text_color, capsule_color));
+    x += 1;
+    canvas.set(x, y, styledCell("", capsule_color, background));
+    return x + 1;
+}
+
+fn drawStyledText(
+    canvas: *Canvas,
+    start_x: i32,
+    y: i32,
+    text: []const u8,
+    foreground: cell_mod.Color,
+    background: cell_mod.Color,
+) i32 {
+    var view = std.unicode.Utf8View.init(text) catch return start_x;
+    var iterator = view.iterator();
+    var x = start_x;
+    while (iterator.nextCodepointSlice()) |codepoint| : (x += 1) {
+        canvas.set(x, y, styledCell(codepoint, foreground, background));
+    }
+    return x;
+}
+
+fn capsuleWidth(text: []const u8) usize {
+    var view = std.unicode.Utf8View.init(text) catch return text.len + 4;
+    var iterator = view.iterator();
+    var count: usize = 4;
+    while (iterator.nextCodepointSlice()) |_| count += 1;
+    return count;
+}
+
+fn styledCell(
+    text: []const u8,
+    foreground: cell_mod.Color,
+    background: cell_mod.Color,
+) cell_mod.Cell {
+    var result = cell(text);
+    result.style.foreground = foreground;
+    result.style.background = background;
+    result.style.bold = true;
+    return result;
+}
+
+fn rgb(r: u8, g: u8, b: u8) cell_mod.Color {
+    return .{ .rgb = .{ .r = r, .g = g, .b = b } };
+}
+
 fn cell(text: []const u8) cell_mod.Cell {
     return cell_mod.Cell.fromUtf8(text) catch cell_mod.Cell.blank();
 }
@@ -218,7 +365,7 @@ test "gap zero preserves two independent pane borders" {
 
 test "status reports active workspace and focused pane numbers" {
     const allocator = std.testing.allocator;
-    var canvas = try Canvas.init(allocator, 20, 4);
+    var canvas = try Canvas.init(allocator, 80, 4);
     defer canvas.deinit(allocator);
     try drawWorkspaceSurfaces(
         &canvas,
@@ -226,13 +373,25 @@ test "status reports active workspace and focused pane numbers" {
         &.{},
         0,
         "work",
+        "12:34",
         2,
         3,
     );
     var dump: std.Io.Writer.Allocating = .init(allocator);
     defer dump.deinit();
     try canvas.writeTextDump(&dump.writer);
+    try std.testing.expect(std.mem.indexOf(u8, dump.written(), "Ctrl+b") != null);
     try std.testing.expect(
-        std.mem.indexOf(u8, dump.written(), "work 2:3") != null,
+        std.mem.indexOf(u8, dump.written(), "session:work") != null,
+    );
+    try std.testing.expect(std.mem.indexOf(u8, dump.written(), "12:34") != null);
+    try std.testing.expect(std.mem.indexOf(u8, dump.written(), "2:3") != null);
+    const key_background = canvas.get(2, 3).style.background.rgb;
+    try std.testing.expectEqual(@as(u8, 136), key_background.r);
+    try std.testing.expectEqual(@as(u8, 192), key_background.g);
+    try std.testing.expectEqual(@as(u8, 208), key_background.b);
+    try std.testing.expectEqualStrings(
+        "",
+        canvas.get(canvas.width - 1, 3).grapheme.slice(),
     );
 }

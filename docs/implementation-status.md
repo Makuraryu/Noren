@@ -1,6 +1,6 @@
 # Implementation status
 
-Version 0.4.0 completes the specification's M0 through M4 milestones.
+Version 0.4.1 completes the specification's M0 through M4 milestones.
 
 | Area | Status | Notes |
 | --- | --- | --- |
@@ -17,6 +17,8 @@ Version 0.4.0 completes the specification's M0 through M4 milestones.
 | Client backpressure | Complete M2 | 4 MiB non-blocking bounded queue |
 | Interactive Pane strip | Complete M3 | Independent PTY, width, focus and camera |
 | Interactive Workspaces | Complete M4 | Independent focus/camera and auto removal |
+| Nord capsule status | Complete | Key hint, Session, local time, workspace:pane |
+| Session rename | Complete | Interactive rename and new attach target |
 | Multi-client and Session switching | Planned M5 | Current Server owns one Session/Client |
 
 The M4 runtime supports one persistent Session with multiple interactive Panes

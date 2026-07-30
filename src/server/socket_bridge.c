@@ -255,6 +255,19 @@ uint64_t noren_monotonic_millis(void) {
     return (uint64_t)now.tv_sec * 1000u + (uint64_t)now.tv_nsec / 1000000u;
 }
 
+uint64_t noren_wall_clock_minute(void) {
+    const time_t now = time(NULL);
+    return now < 0 ? 0 : (uint64_t)now / 60u;
+}
+
+int noren_format_local_hhmm(char *buffer, size_t capacity) {
+    if (buffer == NULL || capacity < 6) return EINVAL;
+    const time_t now = time(NULL);
+    struct tm local = {0};
+    if (now < 0 || localtime_r(&now, &local) == NULL) return EINVAL;
+    return strftime(buffer, capacity, "%H:%M", &local) == 5 ? 0 : EINVAL;
+}
+
 int noren_socket_close(int fd) {
     return fd < 0 || close(fd) == 0 ? 0 : errno;
 }

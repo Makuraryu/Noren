@@ -105,6 +105,7 @@ pub fn run(allocator: std.mem.Allocator, options: Options) !void {
     var ever_attached = false;
     var rendered_after_attach = false;
     var startup_grace_ticks: usize = 100;
+    var status_minute = reactor.wallClockMinute();
 
     while (model.sessions.count() > 0 and panes.count() > 0) {
         var fds: [max_poll_entries]c_int = undefined;
@@ -150,8 +151,12 @@ pub fn run(allocator: std.mem.Allocator, options: Options) !void {
                 .{ .pane = entry.key_ptr.* },
             );
         }
-        var poll_timeout_ms: i32 =
-            if (!ever_attached and waiting_for_terminal_completion) 20 else -1;
+        var poll_timeout_ms: i32 = if (attached) 1000 else -1;
+        if (!ever_attached and waiting_for_terminal_completion and
+            (poll_timeout_ms < 0 or poll_timeout_ms > 20))
+        {
+            poll_timeout_ms = 20;
+        }
         poll_timeout_ms = nextTimerTimeout(&panes, poll_timeout_ms);
         try reactor.poll(
             fds[0..count],
@@ -231,6 +236,11 @@ pub fn run(allocator: std.mem.Allocator, options: Options) !void {
             if (entry.value_ptr.backend.takeDamage()) render_needed = true;
         }
         try fireCloseTimers(allocator, &model, &panes, options);
+        const current_minute = reactor.wallClockMinute();
+        if (attached and current_minute != status_minute) {
+            status_minute = current_minute;
+            render_needed = true;
+        }
 
         var completed: [256]ids.PaneId = undefined;
         var completed_count: usize = 0;
@@ -278,7 +288,6 @@ pub fn run(allocator: std.mem.Allocator, options: Options) !void {
                 &panes,
                 outer_cols,
                 outer_rows,
-                options.session_name,
                 force_full,
             ) catch |err| {
                 std.debug.print(
@@ -488,6 +497,7 @@ fn handleMessage(
                 options,
                 outer_cols.*,
                 parsed.value.command,
+                parsed.value.value,
             ) catch |err| switch (err) {
                 error.InvalidPaneState,
                 error.PaneLimitReached,
@@ -496,6 +506,9 @@ fn handleMessage(
                 error.PaneNotFound,
                 error.WorkspaceNotFound,
                 error.SessionNotFound,
+                error.InvalidSessionName,
+                error.DuplicateSessionName,
+                error.MissingCommandArgument,
                 error.UnknownCommand,
                 => {
                     var notice_buffer: [128]u8 = undefined;
@@ -515,6 +528,11 @@ fn handleMessage(
                 },
                 else => return err,
             };
+            if (std.mem.eql(
+                u8,
+                parsed.value.command,
+                "rename-session",
+            )) force_full.* = true;
             render_needed.* = true;
         },
         .detach_request => {
@@ -542,6 +560,7 @@ fn handleCommand(
     options: Options,
     viewport_width: u16,
     command: []const u8,
+    value: ?[]const u8,
 ) !void {
     const action: action_mod.Action = if (std.mem.eql(u8, command, "new-pane"))
         .{ .new_pane = .{
@@ -590,6 +609,11 @@ fn handleCommand(
         } }
     else if (std.mem.eql(u8, command, "close-pane"))
         .{ .close_pane = focusedPaneId(model, session_id) orelse return }
+    else if (std.mem.eql(u8, command, "rename-session"))
+        .{ .rename_session = .{
+            .session_id = session_id,
+            .name = value orelse return error.MissingCommandArgument,
+        } }
     else
         return error.UnknownCommand;
     try dispatch(
@@ -942,7 +966,6 @@ fn sendRender(
     panes: *std.AutoHashMapUnmanaged(ids.PaneId, PaneRuntime),
     cols: u16,
     rows: u16,
-    session_name: []const u8,
     force_full: bool,
 ) !void {
     const session = model.sessions.getPtr(session_id) orelse
@@ -980,6 +1003,8 @@ fn sendRender(
         };
         view_count += 1;
     }
+    var time_buffer: [6]u8 = undefined;
+    const time_text = reactor.localTimeHhmm(&time_buffer) catch "--:--";
     const payload = try renderer.frameAlloc(
         allocator,
         views[0..view_count],
@@ -987,7 +1012,8 @@ fn sendRender(
         workspace.focused_pane,
         cols,
         rows,
-        session_name,
+        session.name,
+        time_text,
         session.active_workspace + 1,
         workspace.focused_pane + 1,
         force_full,

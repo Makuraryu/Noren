@@ -24,7 +24,7 @@ spawn -noecho /bin/sh -c {
     stty rows 24 cols 80
     exec "$NOREN_E2E_BIN" new -s multi -- /bin/sh
 }
-expect -re {multi 1:1}
+expect -re {session:multi}
 send -- "printf 'PANE1_OK\\n'\r"
 pause_and_drain 250
 
@@ -61,6 +61,26 @@ send -- "\002\033\[B"
 pause_and_drain 400
 send -- "printf 'WORKSPACE2_BACK_OK\\n'\r"
 pause_and_drain 500
+
+# Rename is a Session-level operation. Detach and attach again using the new
+# name to prove that the Server-side identity label changed.
+send -- "\002,"
+pause_and_drain 200
+send -- "multi-renamed\r"
+pause_and_drain 500
+send -- "\002d"
+expect eof
+set detached_result [wait]
+if {[lindex $detached_result 3] != 0} {
+    puts stderr "client failed after renaming and detaching"
+    exit 1
+}
+
+spawn -noecho /bin/sh -c {
+    stty rows 24 cols 80
+    exec "$NOREN_E2E_BIN" attach -t multi-renamed
+}
+expect -re {session:multi-renamed}
 
 # Closing the only Pane removes Workspace 2. Close both remaining Panes.
 send -- "\002x"
