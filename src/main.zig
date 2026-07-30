@@ -17,6 +17,7 @@ pub fn main(init: std.process.Init) !void {
 
     const exit_code = run(
         allocator,
+        init.io,
         init.environ_map,
         args,
         stdout,
@@ -33,6 +34,7 @@ pub fn main(init: std.process.Init) !void {
 
 fn run(
     allocator: std.mem.Allocator,
+    io: std.Io,
     environ: *std.process.Environ.Map,
     args: []const []const u8,
     stdout: *std.Io.Writer,
@@ -41,17 +43,17 @@ fn run(
     const command = if (args.len > 1) args[1] else "new";
 
     if (std.mem.eql(u8, command, "version") or std.mem.eql(u8, command, "--version")) {
-        try stdout.writeAll("noren 0.1.0 (M1)\n");
+        try stdout.writeAll("noren 0.2.0 (M2)\n");
         return 0;
     }
     if (std.mem.eql(u8, command, "info")) {
         try stdout.writeAll(
-            \\Noren 0.1.0
-            \\implementation stage: M1 (single Pane PTY + libvterm)
+            \\Noren 0.2.0
+            \\implementation stage: M2 (persistent single-Session server)
             \\protocol: NRN1 1.0
             \\target Zig: 0.16.0
             \\PTY runtime: enabled
-            \\persistent server/attach: not enabled in this stage
+            \\persistent server/attach: enabled
             \\
         );
         return 0;
@@ -65,7 +67,13 @@ fn run(
     if (std.mem.eql(u8, command, "new") or
         std.mem.eql(u8, command, "new-session"))
     {
-        return runNew(allocator, environ, args[2..], stderr);
+        return runNew(allocator, io, environ, args[0], args[2..], stderr);
+    }
+    if (std.mem.eql(u8, command, "attach")) {
+        return runAttach(allocator, environ, args[2..], stderr);
+    }
+    if (std.mem.eql(u8, command, "__server")) {
+        return runServer(allocator, environ, args[2..], stderr);
     }
     if (std.mem.eql(u8, command, "help") or std.mem.eql(u8, command, "--help")) {
         try printHelp(stdout);
@@ -73,7 +81,7 @@ fn run(
     }
 
     try stderr.print(
-        "noren: command '{s}' is unavailable in implementation stage M0\n\n",
+        "noren: unknown command '{s}'\n\n",
         .{command},
     );
     try printHelp(stderr);
@@ -84,22 +92,25 @@ fn printHelp(writer: *std.Io.Writer) !void {
     try writer.writeAll(
         \\Usage: noren <command>
         \\
-        \\Commands available in 0.1.0:
-        \\  new [-s NAME] [-c DIR] [-- COMMAND...]
-        \\                      Run a shell/command in a PTY-backed Pane
+        \\Commands available in 0.2.0:
+        \\  new [-d] [-s NAME] [-c DIR] [-- COMMAND...]
+        \\                      Create a persistent Session; attach unless -d
+        \\  attach [-t NAME]    Attach to the running Session
         \\  version             Show version
         \\  info                Show implementation capabilities
         \\  debug model-demo    Exercise the model and layout renderer
         \\  help                Show this help
         \\
-        \\Detached Sessions and attach are scheduled for M2.
+        \\Inside a Session, press Ctrl-b then d to detach.
         \\
     );
 }
 
 fn runNew(
     allocator: std.mem.Allocator,
+    io: std.Io,
     environ: *std.process.Environ.Map,
+    executable: []const u8,
     args: []const []const u8,
     stderr: *std.Io.Writer,
 ) !u8 {
@@ -111,32 +122,87 @@ fn runNew(
         return 2;
     }
 
-    var session_name: []const u8 = "default";
-    var cwd: ?[]const u8 = null;
-    var command: ?[]const []const u8 = null;
+    const parsed = try parseNewArgs(args, stderr) orelse return 2;
+    const socket_path = try noren.server.transport.defaultSocketPath(allocator);
+    if (noren.server.transport.Stream.connect(allocator, socket_path)) |existing_value| {
+        var existing = existing_value;
+        existing.close();
+        try stderr.writeAll(
+            "noren: a Session server is already running; use 'noren attach'\n",
+        );
+        return 1;
+    } else |_| {}
+
+    const server_args = try allocator.alloc([]const u8, args.len + 2);
+    server_args[0] = executable;
+    server_args[1] = "__server";
+    @memcpy(server_args[2..], args);
+    const child = try std.process.spawn(io, .{
+        .argv = server_args,
+        .stdin = .ignore,
+        .stdout = .ignore,
+        .stderr = .ignore,
+        .pgid = 0,
+    });
+    _ = child;
+
+    var connected = false;
+    for (0..100) |_| {
+        if (noren.server.transport.Stream.connect(allocator, socket_path)) |probe_value| {
+            var probe = probe_value;
+            probe.close();
+            connected = true;
+            break;
+        } else |_| {
+            try io.sleep(.fromMilliseconds(20), .awake);
+        }
+    }
+    if (!connected) {
+        try stderr.writeAll("noren: Session server did not start\n");
+        return 1;
+    }
+    if (parsed.detached) return 0;
+
+    noren.client.remote.run(allocator, .{
+        .socket_path = socket_path,
+        .session_name = parsed.session_name,
+    }) catch |err| return reportClientError(err, stderr);
+    return 0;
+}
+
+const NewArgs = struct {
+    session_name: []const u8 = "default",
+    cwd: ?[]const u8 = null,
+    command: ?[]const []const u8 = null,
+    detached: bool = false,
+};
+
+fn parseNewArgs(
+    args: []const []const u8,
+    stderr: *std.Io.Writer,
+) !?NewArgs {
+    var parsed: NewArgs = .{};
     var index: usize = 0;
     while (index < args.len) : (index += 1) {
         const arg = args[index];
         if (std.mem.eql(u8, arg, "--")) {
-            command = args[index + 1 ..];
+            parsed.command = args[index + 1 ..];
             break;
         }
         if (std.mem.eql(u8, arg, "-d")) {
-            try stderr.writeAll(
-                "noren: detached creation requires the persistent M2 server\n",
-            );
-            return 2;
+            parsed.detached = true;
+            continue;
         }
         if (std.mem.eql(u8, arg, "-s")) {
             index += 1;
             if (index >= args.len) {
                 try stderr.writeAll("noren: -s requires a Session name\n");
-                return 2;
+                return null;
             }
-            session_name = args[index];
-            noren.core.model.validateSessionName(session_name) catch {
+            parsed.session_name = args[index];
+            noren.core.model.validateSessionName(parsed.session_name) catch {
                 try stderr.writeAll("noren: invalid Session name\n");
-                return 2;
+                return null;
             };
             continue;
         }
@@ -144,31 +210,44 @@ fn runNew(
             index += 1;
             if (index >= args.len) {
                 try stderr.writeAll("noren: -c requires a directory\n");
-                return 2;
+                return null;
             }
-            cwd = args[index];
+            parsed.cwd = args[index];
             continue;
         }
         try stderr.print("noren: unknown new option '{s}'\n", .{arg});
-        return 2;
+        return null;
     }
+    if (parsed.command) |command| {
+        if (command.len == 0) {
+            try stderr.writeAll("noren: COMMAND after -- cannot be empty\n");
+            return null;
+        }
+    }
+    return parsed;
+}
+
+fn runServer(
+    allocator: std.mem.Allocator,
+    environ: *std.process.Environ.Map,
+    args: []const []const u8,
+    stderr: *std.Io.Writer,
+) !u8 {
+    const parsed = (try parseNewArgs(args, stderr)) orelse return 2;
 
     var child_environment = try environ.clone(allocator);
     defer child_environment.deinit();
     try child_environment.put("TERM", "xterm-256color");
     try child_environment.put("COLORTERM", "truecolor");
     try child_environment.put("NOREN", "1");
-    try child_environment.put("NOREN_SOCKET", "m1-local");
+    const socket_path = try noren.server.transport.defaultSocketPath(allocator);
+    try child_environment.put("NOREN_SOCKET", socket_path);
     try child_environment.put("NOREN_SESSION", "s1");
     try child_environment.put("NOREN_PANE", "p1");
 
-    const child_command = command orelse &.{
+    const child_command = parsed.command orelse &.{
         child_environment.get("SHELL") orelse "/bin/sh",
     };
-    if (child_command.len == 0) {
-        try stderr.writeAll("noren: COMMAND after -- cannot be empty\n");
-        return 2;
-    }
 
     const environment_entries = try allocator.alloc(
         []const u8,
@@ -184,21 +263,67 @@ fn runNew(
         );
     }
 
-    noren.client.interactive.run(allocator, .{
+    try noren.server.session.run(allocator, .{
         .argv = child_command,
-        .cwd = cwd,
+        .cwd = parsed.cwd,
         .environment = environment_entries,
-        .session_name = session_name,
-    }) catch |err| {
-        switch (err) {
-            error.NotInteractiveTerminal => {
-                try stderr.writeAll("noren: new requires an interactive terminal\n");
-                return 1;
-            },
-            else => return err,
-        }
-    };
+        .session_name = parsed.session_name,
+        .socket_path = socket_path,
+    });
     return 0;
+}
+
+fn runAttach(
+    allocator: std.mem.Allocator,
+    environ: *std.process.Environ.Map,
+    args: []const []const u8,
+    stderr: *std.Io.Writer,
+) !u8 {
+    if (environ.contains("NOREN")) {
+        try stderr.writeAll("noren: attaching from inside Noren is disabled\n");
+        return 2;
+    }
+    var target: []const u8 = "default";
+    var index: usize = 0;
+    while (index < args.len) : (index += 1) {
+        if (std.mem.eql(u8, args[index], "-t")) {
+            index += 1;
+            if (index >= args.len) {
+                try stderr.writeAll("noren: -t requires a Session name\n");
+                return 2;
+            }
+            target = args[index];
+            noren.core.model.validateSessionName(target) catch {
+                try stderr.writeAll("noren: invalid Session name\n");
+                return 2;
+            };
+        } else {
+            try stderr.print("noren: unknown attach option '{s}'\n", .{args[index]});
+            return 2;
+        }
+    }
+    const socket_path = try noren.server.transport.defaultSocketPath(allocator);
+    noren.client.remote.run(allocator, .{
+        .socket_path = socket_path,
+        .session_name = target,
+    }) catch |err| return reportClientError(err, stderr);
+    return 0;
+}
+
+fn reportClientError(err: anyerror, stderr: *std.Io.Writer) !u8 {
+    switch (err) {
+        error.ServerUnavailable => try stderr.writeAll(
+            "noren: no Session server is running; create one with 'noren new'\n",
+        ),
+        error.NotInteractiveTerminal => try stderr.writeAll(
+            "noren: attach requires an interactive terminal\n",
+        ),
+        error.AttachRejected => try stderr.writeAll(
+            "noren: requested Session was not found\n",
+        ),
+        else => return err,
+    }
+    return 1;
 }
 
 fn modelDemo(allocator: std.mem.Allocator, writer: *std.Io.Writer) !void {

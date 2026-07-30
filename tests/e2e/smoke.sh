@@ -6,7 +6,9 @@ capture_file=$(mktemp "${TMPDIR:-/tmp}/noren-e2e.XXXXXX")
 stdout_file=$(mktemp "${TMPDIR:-/tmp}/noren-e2e-stdout.XXXXXX")
 nvim_capture_file=$(mktemp "${TMPDIR:-/tmp}/noren-nvim-e2e.XXXXXX")
 nvim_stdout_file=$(mktemp "${TMPDIR:-/tmp}/noren-nvim-e2e-stdout.XXXXXX")
-trap 'rm -f "$capture_file" "$stdout_file" "$nvim_capture_file" "$nvim_stdout_file"' EXIT HUP INT TERM
+detach_capture_file=$(mktemp "${TMPDIR:-/tmp}/noren-detach-e2e.XXXXXX")
+detach_stdout_file=$(mktemp "${TMPDIR:-/tmp}/noren-detach-e2e-stdout.XXXXXX")
+trap 'rm -f "$capture_file" "$stdout_file" "$nvim_capture_file" "$nvim_stdout_file" "$detach_capture_file" "$detach_stdout_file"' EXIT HUP INT TERM
 
 export NOREN_E2E_BIN="$noren_bin"
 e2e_dir=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
@@ -53,6 +55,14 @@ if command -v nvim >/dev/null 2>&1 && command -v expect >/dev/null 2>&1; then
     strings "$nvim_capture_file" | grep -q 'nvim-smoke 1:1'
     if strings "$nvim_capture_file" | grep -q 'noren:'; then
         printf 'nvim lifecycle produced a Noren runtime error\n' >&2
+        exit 1
+    fi
+
+    export NOREN_E2E_DETACH_CAPTURE="$detach_capture_file"
+    expect "$e2e_dir/detach_nvim.exp" >"$detach_stdout_file"
+    strings "$detach_capture_file" | grep -q 'persisted-nvim 1:1'
+    if strings "$detach_capture_file" | grep -q 'noren:'; then
+        printf 'Nvim detach/reattach produced a Noren runtime error\n' >&2
         exit 1
     fi
 fi

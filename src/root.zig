@@ -21,6 +21,7 @@ pub const layout = struct {
 };
 pub const protocol = struct {
     pub const frame = @import("protocol/frame.zig");
+    pub const control = @import("protocol/control.zig");
 };
 pub const terminal = struct {
     pub const cell = @import("terminal/cell.zig");
@@ -30,6 +31,7 @@ pub const render = struct {
     pub const canvas = @import("render/canvas.zig");
     pub const compositor = @import("render/compositor.zig");
     pub const ansi = @import("render/ansi.zig");
+    pub const session = @import("render/session.zig");
 };
 pub const input = struct {
     pub const prefix = @import("input/prefix.zig");
@@ -40,6 +42,11 @@ pub const os = struct {
 pub const client = struct {
     pub const raw_mode = @import("client/raw_mode.zig");
     pub const interactive = @import("client/interactive.zig");
+    pub const remote = @import("client/remote.zig");
+};
+pub const server = struct {
+    pub const transport = @import("server/transport.zig");
+    pub const session = @import("server/session.zig");
 };
 
 test {
@@ -55,13 +62,18 @@ test {
     _ = layout.workspace;
     _ = layout.reveal;
     _ = protocol.frame;
+    _ = protocol.control;
     _ = terminal.cell;
     _ = terminal.backend;
     _ = render.canvas;
     _ = render.compositor;
     _ = render.ansi;
+    _ = render.session;
     _ = input.prefix;
     _ = os.pty;
     _ = client.raw_mode;
     _ = client.interactive;
+    _ = client.remote;
+    _ = server.transport;
+    _ = server.session;
 }

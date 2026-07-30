@@ -17,8 +17,9 @@ Every frame begins with this fixed 20-byte, big-endian header:
 
 Payloads are capped at 16 MiB. The parser accepts split headers, split payloads
 and multiple frames delivered in one read. It validates magic and length before
-allocating a payload. Control messages will use validated UTF-8 JSON; raw input
+allocating a payload. Control messages use validated UTF-8 JSON; raw input
 and render messages remain byte payloads.
 
-Protocol version in Noren 0.1.0 is `1.0`. The current M0 milestone implements
-the framing library and tests but does not open a socket.
+Protocol version in Noren 0.2.0 is `1.0`. M2 implements `hello`/`welcome`,
+`attach_request`/`attached`, resize, input, render, detach and ping/pong over an
+owner-only Unix socket.

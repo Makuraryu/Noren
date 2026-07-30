@@ -2,14 +2,13 @@
 
 Noren is a scrolling terminal multiplexer built around horizontal workspaces.
 
-This repository contains Noren `0.1.0`, the completed **M0 model and M1
-single-Pane PTY/VT milestones** from
+This repository contains Noren `0.2.0`, the completed **M0–M2
+single-Pane persistent Server/Client milestones** from
 [`Noren-Agent-开发规范.md`](Noren-Agent-%E5%BC%80%E5%8F%91%E8%A7%84%E8%8C%83.md).
-It is the first working development version: `noren new` runs a shell or command
-inside a real PTY, parses its terminal output with pinned libvterm, and renders
-it safely in the outer terminal.
+It runs a shell or command in a Server-owned PTY, parses terminal output with
+pinned libvterm, and lets a client detach and later recover the latest screen.
 
-## What works in 0.1.0
+## What works in 0.2.0
 
 - Monotonic stable IDs for Sessions, Workspaces, Panes, Clients, Layers and
   asynchronous events.
@@ -30,10 +29,16 @@ it safely in the outer terminal.
 - A raw-mode interactive client with signal self-pipe, idempotent terminal
   restoration, bounded Pane input, prefix routing and a structured ANSI
   renderer.
+- A per-user Unix socket with owner-only permissions and peer-UID validation.
+- `NRN1` handshake/control JSON, persistent `new -d`, `attach`, full redraw on
+  attach and structured Canvas diffs during normal rendering.
+- A bounded, non-blocking client output queue; a slow or crashed client cannot
+  block PTY draining or destroy the Session.
+- End-to-end Neovim detach/reattach coverage.
 
-The Unix-socket Server, persistent detach/attach and multi-Pane interactive
-runtime are the next milestones and are not advertised as available. See
-[the implementation status](docs/implementation-status.md).
+The current runtime intentionally permits one Server-owned Session with one
+Pane. The horizontal multi-Pane runtime is M3. See [the implementation
+status](docs/implementation-status.md).
 
 ## Build
 
@@ -64,12 +69,19 @@ zig build run -- version
 zig build run -- info
 zig build run -- debug model-demo
 zig build run -- new -s work
+zig build run -- new -d -s work
+zig build run -- attach -t work
 zig build run -- new -s build -- /bin/sh -c 'printf "hello\n"'
 ```
 
-Inside `new`, ordinary bytes go to the Pane and `C-b C-b` sends a literal
-prefix. `C-b x` closes the local Pane. Commands that require a persistent
-Server fail explicitly.
+Inside a Session, ordinary bytes go to the Pane. Prefix keys are:
+
+- `Ctrl-b`, then `d`: detach; the command keeps running.
+- `Ctrl-b`, then `x`: close the Pane and Session.
+- `Ctrl-b`, then `Ctrl-b`: send a literal `Ctrl-b` to the command.
+
+Other reserved prefix commands currently ring the terminal bell until their
+M3/M4 runtime feature is implemented.
 
 ## Project rules
 

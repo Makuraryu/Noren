@@ -13,6 +13,7 @@ pub fn build(b: *std.Build) void {
     noren.addIncludePath(b.path("src/terminal"));
     noren.addIncludePath(b.path("src/os"));
     noren.addIncludePath(b.path("src/client"));
+    noren.addIncludePath(b.path("src/server"));
     noren.addCSourceFiles(.{
         .files = &.{
             "vendor/libvterm/src/encoding.c",
@@ -27,6 +28,7 @@ pub fn build(b: *std.Build) void {
             "src/terminal/libvterm_bridge.c",
             "src/os/pty_bridge.c",
             "src/client/raw_bridge.c",
+            "src/server/socket_bridge.c",
         },
         .flags = &.{ "-std=c99", "-Wall", "-Wextra" },
     });

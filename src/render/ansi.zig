@@ -52,6 +52,69 @@ pub fn writeFull(
     }
 }
 
+pub fn writeDiff(
+    writer: *std.Io.Writer,
+    previous: *const Canvas,
+    current: *const Canvas,
+    cursor: Cursor,
+) !void {
+    if (previous.width != current.width or previous.height != current.height) {
+        return writeFull(writer, current, cursor, true);
+    }
+    for (0..current.height) |row| {
+        for (0..current.width) |column| {
+            const before = previous.get(@intCast(column), @intCast(row));
+            const after = current.get(@intCast(column), @intCast(row));
+            if (std.meta.eql(before, after) or after.width == .continuation) continue;
+            try writer.print("\x1b[{d};{d}H", .{ row + 1, column + 1 });
+            try writeStyle(writer, after.style);
+            switch (after.width) {
+                .empty => try writer.writeByte(' '),
+                .narrow => if (after.grapheme.len == 0)
+                    try writer.writeByte(' ')
+                else
+                    try writer.writeAll(after.grapheme.slice()),
+                .wide => if (after.grapheme.len == 0)
+                    try writer.writeAll("  ")
+                else
+                    try writer.writeAll(after.grapheme.slice()),
+                .continuation => unreachable,
+            }
+        }
+    }
+    try writer.writeAll("\x1b[0m");
+    if (cursor.visible and cursor.x < current.width and cursor.y < current.height) {
+        try writer.print(
+            "\x1b[{d};{d}H\x1b[?25h",
+            .{ cursor.y + 1, cursor.x + 1 },
+        );
+    } else {
+        try writer.writeAll("\x1b[?25l");
+    }
+}
+
+test "diff renderer emits only changed cells" {
+    const allocator = std.testing.allocator;
+    var previous = try Canvas.init(allocator, 3, 1);
+    defer previous.deinit(allocator);
+    var current = try Canvas.init(allocator, 3, 1);
+    defer current.deinit(allocator);
+    previous.cells[0] = try cell_mod.Cell.fromUtf8("A");
+    current.cells[0] = previous.cells[0];
+    current.cells[1] = try cell_mod.Cell.fromUtf8("B");
+
+    var output: std.Io.Writer.Allocating = .init(allocator);
+    defer output.deinit();
+    try writeDiff(
+        &output.writer,
+        &previous,
+        &current,
+        .{ .x = 0, .y = 0, .visible = false },
+    );
+    try std.testing.expect(std.mem.indexOf(u8, output.written(), "B") != null);
+    try std.testing.expect(std.mem.indexOf(u8, output.written(), "A") == null);
+}
+
 test "renderer advances across malformed empty graphemes defensively" {
     const allocator = std.testing.allocator;
     var canvas = try Canvas.init(allocator, 1, 1);

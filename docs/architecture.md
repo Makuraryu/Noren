@@ -41,9 +41,9 @@ Action. This keeps failed syscalls from being represented as successful state.
 - `input`: byte/event routing into structured commands.
 - `config`: validated policy values and hard resource limits.
 
-The M1 executable combines the PTY and terminal backend in a local interactive
-client. The future Unix-socket Server will execute the same model Effects
-without changing these boundaries.
+The M2 Server owns the PTY and terminal backend. The client owns only outer-TTY
+raw mode, prefix routing, and IPC. A disconnect therefore cannot terminate or
+invalidate the Pane.
 
 ## Lifecycles
 
@@ -60,13 +60,16 @@ running → closing_hup → closing_term → closing_kill → draining → remov
 The final Pane removes its Workspace; the final Workspace ends its Session.
 Client detach only severs the attachment and never removes Pane state.
 
-## M1 byte path
+## M2 byte path
 
 ```text
-child process → PTY master → libvterm → Cell surface → Canvas → ANSI → outer TTY
-outer TTY → prefix router → bounded input queue → PTY master
+child → PTY → libvterm → Cell surface → Canvas full/diff
+                                            ↓ bounded NRN1 output queue
+outer TTY ← ANSI bytes ← Unix socket ← Server
+outer TTY → prefix router → Unix socket → bounded Pane input → PTY
 ```
 
-The outer terminal never receives child ANSI directly. A signal self-pipe
-wakes the client for resize and termination; terminal restoration is one
-idempotent cleanup path.
+The outer terminal never receives child ANSI directly. Server socket writes
+are non-blocking and capped, so slow clients cannot stop PTY draining. A signal
+self-pipe wakes the client for resize and termination; terminal restoration is
+one idempotent cleanup path.

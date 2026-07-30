@@ -1,0 +1,34 @@
+#!/usr/bin/expect -f
+set timeout 15
+log_user 1
+log_file -noappend $env(NOREN_E2E_DETACH_CAPTURE)
+
+spawn -noecho /bin/sh -c {
+    stty rows 24 cols 80
+    exec "$NOREN_E2E_BIN" new -s persisted-nvim -- \
+        "$NOREN_E2E_NVIM" -u NONE -i NONE -n
+}
+after 700
+
+# Detach the client. The server and Nvim process must remain alive.
+send -- "\002d"
+expect eof
+set first_result [wait]
+if {[lindex $first_result 3] != 0} {
+    puts stderr "initial client failed while detaching"
+    exit 1
+}
+
+spawn -noecho /bin/sh -c {
+    stty rows 24 cols 80
+    exec "$NOREN_E2E_BIN" attach -t persisted-nvim
+}
+after 700
+send -- ":q\r"
+expect eof
+set second_result [wait]
+set exit_code [lindex $second_result 3]
+if {$exit_code != 0} {
+    puts stderr "reattached Nvim lifecycle exited with status $exit_code"
+    exit $exit_code
+}
