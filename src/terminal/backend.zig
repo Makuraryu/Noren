@@ -50,6 +50,15 @@ pub const TerminalBackend = struct {
             return .{ .width = .continuation };
         }
 
+        const style: cell_mod.Style = .{
+            .foreground = convertColor(source.foreground),
+            .background = convertColor(source.background),
+            .bold = source.attrs & c.NOREN_CELL_BOLD != 0,
+            .italic = source.attrs & c.NOREN_CELL_ITALIC != 0,
+            .underline = source.attrs & c.NOREN_CELL_UNDERLINE != 0,
+            .inverse = source.attrs & c.NOREN_CELL_REVERSE != 0,
+            .strike = source.attrs & c.NOREN_CELL_STRIKE != 0,
+        };
         var utf8: [24]u8 = undefined;
         var length: usize = 0;
         for (source.chars) |raw_codepoint| {
@@ -58,20 +67,17 @@ pub const TerminalBackend = struct {
             const written = std.unicode.utf8Encode(codepoint, utf8[length..]) catch continue;
             length += written;
         }
+        if (length == 0) {
+            var blank = cell_mod.Cell.blank();
+            blank.style = style;
+            return blank;
+        }
         const grapheme = cell_mod.Grapheme.fromUtf8(utf8[0..length]) catch
             cell_mod.Grapheme.fromUtf8("�") catch unreachable;
         return .{
             .grapheme = grapheme,
             .width = if (source.width == 2) .wide else .narrow,
-            .style = .{
-                .foreground = convertColor(source.foreground),
-                .background = convertColor(source.background),
-                .bold = source.attrs & c.NOREN_CELL_BOLD != 0,
-                .italic = source.attrs & c.NOREN_CELL_ITALIC != 0,
-                .underline = source.attrs & c.NOREN_CELL_UNDERLINE != 0,
-                .inverse = source.attrs & c.NOREN_CELL_REVERSE != 0,
-                .strike = source.attrs & c.NOREN_CELL_STRIKE != 0,
-            },
+            .style = style,
         };
     }
 
@@ -139,4 +145,13 @@ test "libvterm backend keeps alternate and main screens separate" {
     try std.testing.expectEqualStrings("a", backend.cellAt(0, 0).grapheme.slice());
     try backend.feed("\x1b[?1049l");
     try std.testing.expectEqualStrings("m", backend.cellAt(0, 0).grapheme.slice());
+}
+
+test "libvterm blank cells occupy one rendered column" {
+    var backend = try TerminalBackend.init(3, 8);
+    defer backend.deinit();
+
+    const blank = backend.cellAt(5, 1);
+    try std.testing.expect(blank.width == .narrow);
+    try std.testing.expectEqualStrings(" ", blank.grapheme.slice());
 }

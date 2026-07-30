@@ -1,0 +1,23 @@
+#!/usr/bin/expect -f
+set timeout 15
+log_user 1
+log_file -noappend $env(NOREN_E2E_CAPTURE)
+
+spawn -noecho /bin/sh -c {
+    stty rows 24 cols 80
+    exec "$NOREN_E2E_BIN" new -s nvim-smoke -- \
+        "$NOREN_E2E_NVIM" -u NONE -i NONE -n
+}
+
+# Input sent before Nvim enables its terminal modes is not a useful lifecycle
+# test. Wait for the initial UI to travel through PTY -> libvterm -> renderer.
+after 1000
+send -- ":q\r"
+expect eof
+
+set result [wait]
+set exit_code [lindex $result 3]
+if {$exit_code != 0} {
+    puts stderr "nvim lifecycle exited with status $exit_code"
+    exit $exit_code
+}

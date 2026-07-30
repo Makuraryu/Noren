@@ -4,9 +4,12 @@ set -eu
 noren_bin=$1
 capture_file=$(mktemp "${TMPDIR:-/tmp}/noren-e2e.XXXXXX")
 stdout_file=$(mktemp "${TMPDIR:-/tmp}/noren-e2e-stdout.XXXXXX")
-trap 'rm -f "$capture_file" "$stdout_file"' EXIT HUP INT TERM
+nvim_capture_file=$(mktemp "${TMPDIR:-/tmp}/noren-nvim-e2e.XXXXXX")
+nvim_stdout_file=$(mktemp "${TMPDIR:-/tmp}/noren-nvim-e2e-stdout.XXXXXX")
+trap 'rm -f "$capture_file" "$stdout_file" "$nvim_capture_file" "$nvim_stdout_file"' EXIT HUP INT TERM
 
 export NOREN_E2E_BIN="$noren_bin"
+e2e_dir=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
 case "$(uname -s)" in
     Darwin)
         script -q "$capture_file" /bin/sh -c '
@@ -41,4 +44,15 @@ strings "$capture_file" | grep -q 'smoke 1:1'
 if strings "$capture_file" | grep -q 'RESTORE_FAILED'; then
     printf 'terminal mode was not restored\n' >&2
     exit 1
+fi
+
+if command -v nvim >/dev/null 2>&1 && command -v expect >/dev/null 2>&1; then
+    export NOREN_E2E_NVIM="$(command -v nvim)"
+    export NOREN_E2E_CAPTURE="$nvim_capture_file"
+    expect "$e2e_dir/nvim.exp" >"$nvim_stdout_file"
+    strings "$nvim_capture_file" | grep -q 'nvim-smoke 1:1'
+    if strings "$nvim_capture_file" | grep -q 'noren:'; then
+        printf 'nvim lifecycle produced a Noren runtime error\n' >&2
+        exit 1
+    fi
 fi

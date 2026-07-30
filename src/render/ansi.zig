@@ -29,7 +29,15 @@ pub fn writeFull(
             }
             switch (current.width) {
                 .empty => try writer.writeByte(' '),
-                else => try writer.writeAll(current.grapheme.slice()),
+                .narrow => if (current.grapheme.len == 0)
+                    try writer.writeByte(' ')
+                else
+                    try writer.writeAll(current.grapheme.slice()),
+                .wide => if (current.grapheme.len == 0)
+                    try writer.writeAll("  ")
+                else
+                    try writer.writeAll(current.grapheme.slice()),
+                .continuation => unreachable,
             }
         }
     }
@@ -42,6 +50,25 @@ pub fn writeFull(
     } else {
         try writer.writeAll("\x1b[?25l");
     }
+}
+
+test "renderer advances across malformed empty graphemes defensively" {
+    const allocator = std.testing.allocator;
+    var canvas = try Canvas.init(allocator, 1, 1);
+    defer canvas.deinit(allocator);
+    canvas.cells[0] = .{ .width = .narrow };
+
+    var output: std.Io.Writer.Allocating = .init(allocator);
+    defer output.deinit();
+    try writeFull(
+        &output.writer,
+        &canvas,
+        .{ .x = 0, .y = 0, .visible = false },
+        false,
+    );
+    try std.testing.expect(
+        std.mem.indexOf(u8, output.written(), "\x1b[0m ") != null,
+    );
 }
 
 fn writeStyle(writer: *std.Io.Writer, style: cell_mod.Style) !void {
