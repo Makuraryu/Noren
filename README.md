@@ -53,7 +53,23 @@ The current runtime intentionally permits one Server-owned Session and one
 attached Client at a time. Multi-Client and multi-Session switching are M5.
 See [the implementation status](docs/implementation-status.md).
 
-## Install on a Linux VPS
+## Install
+
+### Homebrew
+
+On macOS or Linux with Homebrew:
+
+```sh
+brew install Makuraryu/tap/noren
+```
+
+Upgrade later with:
+
+```sh
+brew upgrade noren
+```
+
+### Linux VPS installer
 
 Install the latest release with one command:
 
@@ -77,6 +93,15 @@ process to pin a release:
 curl -fsSL https://github.com/Makuraryu/Noren/releases/latest/download/install.sh \
   | env NOREN_VERSION=v0.4.3 sh
 ```
+
+Set `NOREN_INSTALL_DIR` to choose a custom destination:
+
+```sh
+curl -fsSL https://github.com/Makuraryu/Noren/releases/latest/download/install.sh \
+  | env NOREN_INSTALL_DIR="$HOME/bin" sh
+```
+
+### Build from source
 
 ## Build
 
