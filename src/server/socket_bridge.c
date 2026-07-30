@@ -14,6 +14,7 @@
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/un.h>
+#include <time.h>
 #include <unistd.h>
 
 static int set_cloexec(int fd) {
@@ -215,6 +216,43 @@ int noren_socket_poll3(
         *ready_mask |= 1 << 3;
     }
     return 0;
+}
+
+int noren_poll_many(
+    const int *fds,
+    const uint8_t *interests,
+    size_t count,
+    int timeout_ms,
+    uint8_t *ready
+) {
+    if (count == 0) {
+        errno = EINVAL;
+        return -1;
+    }
+    struct pollfd events[count];
+    for (size_t index = 0; index < count; index++) {
+        events[index].fd = fds[index];
+        events[index].events = POLLHUP | POLLERR;
+        if (interests[index] & 1) events[index].events |= POLLIN;
+        if (interests[index] & 2) events[index].events |= POLLOUT;
+        events[index].revents = 0;
+        ready[index] = 0;
+    }
+    const int result = poll(events, (nfds_t)count, timeout_ms);
+    if (result < 0) return errno == EINTR ? 0 : -errno;
+    for (size_t index = 0; index < count; index++) {
+        if (events[index].revents & (POLLIN | POLLHUP | POLLERR)) {
+            ready[index] |= 1;
+        }
+        if (events[index].revents & POLLOUT) ready[index] |= 2;
+    }
+    return 0;
+}
+
+uint64_t noren_monotonic_millis(void) {
+    struct timespec now = {0};
+    if (clock_gettime(CLOCK_MONOTONIC, &now) != 0) return 0;
+    return (uint64_t)now.tv_sec * 1000u + (uint64_t)now.tv_nsec / 1000000u;
 }
 
 int noren_socket_close(int fd) {

@@ -1,13 +1,12 @@
 # Architecture
 
-Noren's first implementation milestone is split around ownership and side
-effects.
+Noren is split around ownership and side effects.
 
 ```text
 CLI
  │
  ▼
-Application service (future server)
+Single-threaded Server reactor
  │ ActionEnvelope
  ▼
 Reducer ───────────────► bounded Effect queue ─► OS/PTY/IPC executors
@@ -41,9 +40,9 @@ Action. This keeps failed syscalls from being represented as successful state.
 - `input`: byte/event routing into structured commands.
 - `config`: validated policy values and hard resource limits.
 
-The M2 Server owns the PTY and terminal backend. The client owns only outer-TTY
-raw mode, prefix routing, and IPC. A disconnect therefore cannot terminate or
-invalidate the Pane.
+The M4 Server owns every Pane PTY and terminal backend. The client owns only
+outer-TTY raw mode, prefix routing, and IPC. A disconnect therefore cannot
+terminate or invalidate a Pane.
 
 ## Lifecycles
 
@@ -60,16 +59,22 @@ running → closing_hup → closing_term → closing_kill → draining → remov
 The final Pane removes its Workspace; the final Workspace ends its Session.
 Client detach only severs the attachment and never removes Pane state.
 
-## M2 byte path
+## M4 byte path
 
 ```text
-child → PTY → libvterm → Cell surface → Canvas full/diff
-                                            ↓ bounded NRN1 output queue
+all Pane children → PTYs → libvterm surfaces → horizontal placement/compositor
+                                                        ↓ Canvas full/diff
+                                            bounded NRN1 output queue ↓
 outer TTY ← ANSI bytes ← Unix socket ← Server
-outer TTY → prefix router → Unix socket → bounded Pane input → PTY
+outer TTY → prefix router → structured Action or bounded Pane input → PTY
 ```
 
 The outer terminal never receives child ANSI directly. Server socket writes
 are non-blocking and capped, so slow clients cannot stop PTY draining. A signal
 self-pipe wakes the client for resize and termination; terminal restoration is
 one idempotent cleanup path.
+
+Every Pane remains registered with the multi-fd reactor whether visible,
+clipped, or in a background Workspace. Close deadlines share that reactor and
+advance the reducer-owned `HUP → TERM → KILL → draining` state machine without
+blocking sleeps.

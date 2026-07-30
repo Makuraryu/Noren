@@ -15,6 +15,10 @@ pub const Attached = struct {
     session: []const u8,
 };
 
+pub const Command = struct {
+    command: []const u8,
+};
+
 pub fn encode(allocator: std.mem.Allocator, value: anytype) ![]u8 {
     return std.fmt.allocPrint(allocator, "{f}", .{std.json.fmt(value, .{})});
 }

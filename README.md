@@ -2,13 +2,13 @@
 
 Noren is a scrolling terminal multiplexer built around horizontal workspaces.
 
-This repository contains Noren `0.2.0`, the completed **M0–M2
-single-Pane persistent Server/Client milestones** from
+This repository contains Noren `0.4.0`, the completed **M0–M4
+persistent Server, horizontal Pane and Workspace milestones** from
 [`Noren-Agent-开发规范.md`](Noren-Agent-%E5%BC%80%E5%8F%91%E8%A7%84%E8%8C%83.md).
 It runs a shell or command in a Server-owned PTY, parses terminal output with
 pinned libvterm, and lets a client detach and later recover the latest screen.
 
-## What works in 0.2.0
+## What works in 0.4.0
 
 - Monotonic stable IDs for Sessions, Workspaces, Panes, Clients, Layers and
   asynchronous events.
@@ -35,10 +35,17 @@ pinned libvterm, and lets a client detach and later recover the latest screen.
 - A bounded, non-blocking client output queue; a slow or crashed client cannot
   block PTY draining or destroy the Session.
 - End-to-end Neovim detach/reattach coverage.
+- One independent PTY and terminal backend per Pane, all drained even while
+  off-screen or in a background Workspace.
+- Right-inserted horizontal Panes with absolute independent widths, clipped
+  camera navigation, focused/inactive borders and mouse hit-test geometry.
+- Down-inserted Workspaces with independent focus/camera state, automatic
+  empty-Workspace removal and `workspace:pane` status numbering.
+- Reactor-driven asynchronous Pane close escalation without blocking sleeps.
 
-The current runtime intentionally permits one Server-owned Session with one
-Pane. The horizontal multi-Pane runtime is M3. See [the implementation
-status](docs/implementation-status.md).
+The current runtime intentionally permits one Server-owned Session and one
+attached Client at a time. Multi-Client and multi-Session switching are M5.
+See [the implementation status](docs/implementation-status.md).
 
 ## Build
 
@@ -76,12 +83,17 @@ zig build run -- new -s build -- /bin/sh -c 'printf "hello\n"'
 
 Inside a Session, ordinary bytes go to the Pane. Prefix keys are:
 
+- `Ctrl-b`, then `c`: create a Pane to the right and focus it.
+- `Ctrl-b`, then `Left`/`Right`: focus the adjacent Pane.
+- `Ctrl-b`, then `Up`/`Down`: switch Workspace.
+- `Ctrl-b`, then `h`/`l`/`k`/`j`: keyboard aliases for the four directions.
+- `Ctrl-b`, then `H`/`L`: narrow/widen the focused Pane by 5 cells.
+- `Ctrl-b`, then `n`: create a Workspace below and focus its first Pane.
+- `Ctrl-b`, then `x`: asynchronously close the focused Pane.
 - `Ctrl-b`, then `d`: detach; the command keeps running.
-- `Ctrl-b`, then `x`: close the Pane and Session.
 - `Ctrl-b`, then `Ctrl-b`: send a literal `Ctrl-b` to the command.
 
-Other reserved prefix commands currently ring the terminal bell until their
-M3/M4 runtime feature is implemented.
+Unimplemented reserved prefix commands ring the terminal bell.
 
 ## Project rules
 

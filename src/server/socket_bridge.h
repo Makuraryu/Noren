@@ -35,6 +35,14 @@ int noren_socket_poll3(
     int watch_second_write,
     int *ready_mask
 );
+int noren_poll_many(
+    const int *fds,
+    const uint8_t *interests,
+    size_t count,
+    int timeout_ms,
+    uint8_t *ready
+);
+uint64_t noren_monotonic_millis(void);
 int noren_socket_close(int fd);
 int noren_socket_remove(const char *path);
 unsigned long noren_user_id(void);

@@ -14,6 +14,11 @@ pub const PaneSurface = struct {
     }
 };
 
+pub const PaneSurfaceEntry = struct {
+    pane_id: ids.PaneId,
+    surface: PaneSurface,
+};
+
 pub fn drawWorkspace(
     canvas: *Canvas,
     placements: []const placement_mod.Placement,
@@ -45,34 +50,38 @@ pub fn drawPaneSurface(
     workspace_number: usize,
     pane_number: usize,
 ) !void {
+    const placements = [_]placement_mod.Placement{placement};
+    const surfaces = [_]PaneSurfaceEntry{.{
+        .pane_id = placement.pane_id,
+        .surface = surface,
+    }};
+    try drawWorkspaceSurfaces(
+        canvas,
+        &placements,
+        &surfaces,
+        0,
+        session_name,
+        workspace_number,
+        pane_number,
+    );
+}
+
+pub fn drawWorkspaceSurfaces(
+    canvas: *Canvas,
+    placements: []const placement_mod.Placement,
+    surfaces: []const PaneSurfaceEntry,
+    focused_pane: usize,
+    session_name: []const u8,
+    workspace_number: usize,
+    pane_number: usize,
+) !void {
     canvas.clear();
-    drawPaneBorder(canvas, placement, true);
-
-    const content_left = placement.screen_x + 1;
-    const content_top = placement.visible.y + 1;
-    const visible_content_cols = placement.visible.width -| 2;
-    const visible_content_rows = placement.visible.height -| 2;
-    const copy_cols = @min(surface.cols, visible_content_cols);
-    const copy_rows = @min(surface.rows, visible_content_rows);
-    for (0..copy_rows) |row| {
-        for (0..copy_cols) |column| {
-            const source = surface.cellAt(@intCast(column), @intCast(row));
-            if (source.width == .wide and column + 1 >= copy_cols) {
-                canvas.set(
-                    content_left + @as(i32, @intCast(column)),
-                    content_top + @as(i32, @intCast(row)),
-                    cell_mod.Cell.blank(),
-                );
-                continue;
-            }
-            canvas.set(
-                content_left + @as(i32, @intCast(column)),
-                content_top + @as(i32, @intCast(row)),
-                source,
-            );
-        }
+    for (placements) |placement| {
+        const focused = placement.pane_index == focused_pane;
+        drawPaneBorder(canvas, placement, focused);
+        const surface = findSurface(surfaces, placement.pane_id) orelse continue;
+        drawClippedSurface(canvas, placement, surface);
     }
-
     if (canvas.height > 0) {
         var status_buffer: [256]u8 = undefined;
         const status = try std.fmt.bufPrint(
@@ -88,30 +97,75 @@ pub fn drawPaneSurface(
     }
 }
 
+fn findSurface(
+    surfaces: []const PaneSurfaceEntry,
+    pane_id: ids.PaneId,
+) ?PaneSurface {
+    for (surfaces) |entry| {
+        if (entry.pane_id == pane_id) return entry.surface;
+    }
+    return null;
+}
+
+fn drawClippedSurface(
+    canvas: *Canvas,
+    placement: placement_mod.Placement,
+    surface: PaneSurface,
+) void {
+    if (placement.visible.height <= 2 or placement.outer_width <= 2) return;
+    const content_top = placement.visible.y + 1;
+    const copy_rows = @min(surface.rows, placement.visible.height - 2);
+    const content_screen_left = placement.screen_x + 1;
+    const content_screen_right = placement.screen_x + placement.outer_width - 1;
+    const visible_left = @max(@as(i32, 0), content_screen_left);
+    const visible_right = @min(@as(i32, canvas.width), content_screen_right);
+    if (visible_left >= visible_right) return;
+
+    for (0..copy_rows) |row| {
+        var screen_x = visible_left;
+        while (screen_x < visible_right) : (screen_x += 1) {
+            const source_column: u16 = @intCast(screen_x - content_screen_left);
+            if (source_column >= surface.cols) continue;
+            var source = surface.cellAt(source_column, @intCast(row));
+            if (source.width == .continuation and
+                (source_column == 0 or screen_x == visible_left))
+            {
+                source = cell_mod.Cell.blank();
+            } else if (source.width == .wide and screen_x + 1 >= visible_right) {
+                source = cell_mod.Cell.blank();
+            }
+            canvas.set(
+                screen_x,
+                content_top + @as(i32, @intCast(row)),
+                source,
+            );
+        }
+    }
+}
+
 fn drawPaneBorder(
     canvas: *Canvas,
     placement: placement_mod.Placement,
     focused: bool,
 ) void {
-    _ = focused;
     const left = placement.screen_x;
     const right = left + placement.outer_width - 1;
     const top = placement.visible.y;
     const bottom = top + placement.visible.height - 1;
 
-    canvas.set(left, top, cell("┌"));
-    canvas.set(right, top, cell("┐"));
-    canvas.set(left, bottom, cell("└"));
-    canvas.set(right, bottom, cell("┘"));
+    canvas.set(left, top, borderCell("┌", focused));
+    canvas.set(right, top, borderCell("┐", focused));
+    canvas.set(left, bottom, borderCell("└", focused));
+    canvas.set(right, bottom, borderCell("┘", focused));
     var x = left + 1;
     while (x < right) : (x += 1) {
-        canvas.set(x, top, cell("─"));
-        canvas.set(x, bottom, cell("─"));
+        canvas.set(x, top, borderCell("─", focused));
+        canvas.set(x, bottom, borderCell("─", focused));
     }
     var y = top + 1;
     while (y < bottom) : (y += 1) {
-        canvas.set(left, y, cell("│"));
-        canvas.set(right, y, cell("│"));
+        canvas.set(left, y, borderCell("│", focused));
+        canvas.set(right, y, borderCell("│", focused));
     }
 }
 
@@ -129,6 +183,12 @@ fn cell(text: []const u8) cell_mod.Cell {
     return cell_mod.Cell.fromUtf8(text) catch cell_mod.Cell.blank();
 }
 
+fn borderCell(text: []const u8, focused: bool) cell_mod.Cell {
+    var result = cell(text);
+    result.style.dim = !focused;
+    result.style.bold = focused;
+    return result;
+}
 test "gap zero preserves two independent pane borders" {
     const allocator = std.testing.allocator;
     var canvas = try Canvas.init(allocator, 12, 5);
@@ -154,4 +214,25 @@ test "gap zero preserves two independent pane borders" {
     try drawWorkspace(&canvas, &placements, 1, "work", 1, 2);
     try std.testing.expectEqualStrings("│", canvas.get(5, 1).grapheme.slice());
     try std.testing.expectEqualStrings("│", canvas.get(6, 1).grapheme.slice());
+}
+
+test "status reports active workspace and focused pane numbers" {
+    const allocator = std.testing.allocator;
+    var canvas = try Canvas.init(allocator, 20, 4);
+    defer canvas.deinit(allocator);
+    try drawWorkspaceSurfaces(
+        &canvas,
+        &.{},
+        &.{},
+        0,
+        "work",
+        2,
+        3,
+    );
+    var dump: std.Io.Writer.Allocating = .init(allocator);
+    defer dump.deinit();
+    try canvas.writeTextDump(&dump.writer);
+    try std.testing.expect(
+        std.mem.indexOf(u8, dump.written(), "work 2:3") != null,
+    );
 }

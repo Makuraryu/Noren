@@ -92,6 +92,23 @@ pub fn revealForSnapshot(
     );
 }
 
+pub fn hitTest(
+    placements: []const placement.Placement,
+    x: i32,
+    y: i32,
+) ?ids.PaneId {
+    for (placements) |item| {
+        const visible = item.visible;
+        if (x >= visible.x and y >= visible.y and
+            x < visible.x + visible.width and
+            y < visible.y + visible.height)
+        {
+            return item.pane_id;
+        }
+    }
+    return null;
+}
+
 test "placement clips without changing pane geometry" {
     const panes = [_]PaneSnapshot{
         .{ .id = @enumFromInt(1), .outer_width = 20 },
@@ -107,4 +124,20 @@ test "placement clips without changing pane geometry" {
     try std.testing.expectEqual(@as(usize, 2), placements.items.len);
     try std.testing.expectEqual(@as(u16, 10), placements.items[0].visible.width);
     try std.testing.expectEqual(@as(u16, 10), placements.items[1].visible.width);
+}
+
+test "mouse hit testing follows clipped independent pane rectangles" {
+    const panes = [_]PaneSnapshot{
+        .{ .id = @enumFromInt(1), .outer_width = 8 },
+        .{ .id = @enumFromInt(2), .outer_width = 8 },
+    };
+    var placements = try placeWorkspace(
+        std.testing.allocator,
+        .{ .panes = &panes, .focused_pane = 0, .camera_x = 4 },
+        .{ .x = 0, .y = 0, .width = 8, .height = 5 },
+    );
+    defer placements.deinit(std.testing.allocator);
+    try std.testing.expectEqual(@as(ids.PaneId, @enumFromInt(1)), hitTest(placements.items, 1, 2).?);
+    try std.testing.expectEqual(@as(ids.PaneId, @enumFromInt(2)), hitTest(placements.items, 6, 2).?);
+    try std.testing.expect(hitTest(placements.items, 2, 6) == null);
 }

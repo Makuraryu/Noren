@@ -1,0 +1,84 @@
+#!/usr/bin/expect -f
+set timeout 30
+log_user 1
+log_file -noappend $env(NOREN_E2E_MULTI_CAPTURE)
+set env(SHELL) /bin/sh
+
+proc pause_and_drain {milliseconds} {
+    set deadline [expr {[clock milliseconds] + $milliseconds}]
+    while {[clock milliseconds] < $deadline} {
+        expect {
+            -timeout 0
+            -re {.+} {}
+            eof { return }
+            timeout {}
+        }
+        set remaining [expr {$deadline - [clock milliseconds]}]
+        if {$remaining > 0} {
+            after [expr {min(50, $remaining)}]
+        }
+    }
+}
+
+spawn -noecho /bin/sh -c {
+    stty rows 24 cols 80
+    exec "$NOREN_E2E_BIN" new -s multi -- /bin/sh
+}
+expect -re {multi 1:1}
+send -- "printf 'PANE1_OK\\n'\r"
+pause_and_drain 250
+
+# New Pane is inserted to the focused Pane's right and receives focus.
+send -- "\002c"
+pause_and_drain 700
+send -- "printf 'PANE2_OK\\n'\r"
+pause_and_drain 500
+
+# Exercise independent focus and width changes.
+send -- "\002\033\[D"
+pause_and_drain 300
+send -- "printf 'LEFT_OK\\n'\r"
+pause_and_drain 500
+send -- "\002\033\[C"
+pause_and_drain 300
+send -- "\002H"
+pause_and_drain 300
+send -- "\002L"
+pause_and_drain 300
+send -- "printf 'RIGHT_OK\\n'\r"
+pause_and_drain 500
+
+# New Workspace is inserted below, then both Workspaces retain their state.
+send -- "\002n"
+pause_and_drain 700
+send -- "printf 'WORKSPACE2_OK\\n'\r"
+pause_and_drain 500
+send -- "\002\033\[A"
+pause_and_drain 400
+send -- "printf 'WORKSPACE1_BACK_OK\\n'\r"
+pause_and_drain 500
+send -- "\002\033\[B"
+pause_and_drain 400
+send -- "printf 'WORKSPACE2_BACK_OK\\n'\r"
+pause_and_drain 500
+
+# Closing the only Pane removes Workspace 2. Close both remaining Panes.
+send -- "\002x"
+pause_and_drain 4000
+send -- "\002x"
+pause_and_drain 4000
+send -- "\002x"
+expect {
+    eof {}
+    timeout {
+        puts stderr "multi-Pane/Workspace lifecycle did not exit"
+        exit 1
+    }
+}
+
+set result [wait]
+set exit_code [lindex $result 3]
+if {$exit_code != 0} {
+    puts stderr "multi-Pane/Workspace lifecycle exited with status $exit_code"
+    exit $exit_code
+}

@@ -7,6 +7,11 @@ const ansi = @import("ansi.zig");
 const placement_mod = @import("../layout/placement.zig");
 const ids = @import("../core/ids.zig");
 
+pub const BackendView = struct {
+    pane_id: ids.PaneId,
+    backend: *const terminal_mod.TerminalBackend,
+};
+
 pub const Renderer = struct {
     previous: ?canvas_mod.Canvas = null,
 
@@ -18,61 +23,75 @@ pub const Renderer = struct {
     pub fn frameAlloc(
         self: *Renderer,
         allocator: std.mem.Allocator,
-        backend: *const terminal_mod.TerminalBackend,
+        backends: []const BackendView,
+        placements: []const placement_mod.Placement,
+        focused_pane: usize,
         outer_cols: u16,
         outer_rows: u16,
         session_name: []const u8,
+        workspace_number: usize,
+        pane_number: usize,
         force_full: bool,
     ) ![]u8 {
         if (outer_cols < 3 or outer_rows < 4) return error.TerminalTooSmall;
         var canvas = try canvas_mod.Canvas.init(allocator, outer_cols, outer_rows);
         errdefer canvas.deinit(allocator);
-        const cells = try allocator.alloc(
-            cell_mod.Cell,
-            @as(usize, backend.rows) * backend.cols,
+
+        const surfaces = try allocator.alloc(
+            compositor.PaneSurfaceEntry,
+            backends.len,
         );
-        defer allocator.free(cells);
-        for (0..backend.rows) |row| {
-            for (0..backend.cols) |column| {
-                cells[row * backend.cols + column] = backend.cellAt(
-                    @intCast(column),
-                    @intCast(row),
-                );
+        defer allocator.free(surfaces);
+        const owned_cells = try allocator.alloc([]cell_mod.Cell, backends.len);
+        defer allocator.free(owned_cells);
+        var initialized: usize = 0;
+        defer for (owned_cells[0..initialized]) |cells| allocator.free(cells);
+
+        for (backends, 0..) |view, index| {
+            const backend = view.backend;
+            const cells = try allocator.alloc(
+                cell_mod.Cell,
+                @as(usize, backend.rows) * backend.cols,
+            );
+            owned_cells[index] = cells;
+            initialized += 1;
+            for (0..backend.rows) |row| {
+                for (0..backend.cols) |column| {
+                    cells[row * backend.cols + column] = backend.cellAt(
+                        @intCast(column),
+                        @intCast(row),
+                    );
+                }
             }
+            surfaces[index] = .{
+                .pane_id = view.pane_id,
+                .surface = .{
+                    .cells = cells,
+                    .cols = backend.cols,
+                    .rows = backend.rows,
+                },
+            };
         }
-        const pane_outer_width = backend.cols + 2;
-        const pane_outer_rows = backend.rows + 2;
-        const placement: placement_mod.Placement = .{
-            .pane_id = @as(ids.PaneId, @enumFromInt(1)),
-            .pane_index = 0,
-            .world_x = 0,
-            .screen_x = 0,
-            .outer_width = pane_outer_width,
-            .visible = .{
-                .x = 0,
-                .y = 0,
-                .width = @min(canvas.width, pane_outer_width),
-                .height = @min(canvas.height -| 1, pane_outer_rows),
-            },
-        };
-        try compositor.drawPaneSurface(
+
+        try compositor.drawWorkspaceSurfaces(
             &canvas,
-            placement,
-            .{ .cells = cells, .cols = backend.cols, .rows = backend.rows },
+            placements,
+            surfaces,
+            focused_pane,
             session_name,
-            1,
-            1,
+            workspace_number,
+            pane_number,
         );
-        const child_cursor = backend.cursor();
+        const cursor = focusedCursor(
+            backends,
+            placements,
+            focused_pane,
+            outer_cols,
+            outer_rows,
+        );
+
         var output: std.Io.Writer.Allocating = .init(allocator);
         defer output.deinit();
-        const cursor: ansi.Cursor = .{
-            .x = child_cursor.col + 1,
-            .y = child_cursor.row + 1,
-            .visible = child_cursor.visible and
-                child_cursor.col < backend.cols and
-                child_cursor.row < backend.rows,
-        };
         if (!force_full and self.previous != null) {
             try ansi.writeDiff(&output.writer, &self.previous.?, &canvas, cursor);
             const full_frame_threshold =
@@ -90,3 +109,31 @@ pub const Renderer = struct {
         return bytes;
     }
 };
+
+fn focusedCursor(
+    backends: []const BackendView,
+    placements: []const placement_mod.Placement,
+    focused_pane: usize,
+    outer_cols: u16,
+    outer_rows: u16,
+) ansi.Cursor {
+    for (placements) |placement| {
+        if (placement.pane_index != focused_pane) continue;
+        for (backends) |view| {
+            if (view.pane_id != placement.pane_id) continue;
+            const child = view.backend.cursor();
+            const x = placement.screen_x + 1 + child.col;
+            const y = placement.visible.y + 1 + child.row;
+            return .{
+                .x = if (x < 0) 0 else @intCast(x),
+                .y = if (y < 0) 0 else @intCast(y),
+                .visible = child.visible and
+                    child.col < view.backend.cols and
+                    child.row < view.backend.rows and
+                    x >= 0 and y >= 0 and
+                    x < outer_cols and y < outer_rows -| 1,
+            };
+        }
+    }
+    return .{ .x = 0, .y = 0, .visible = false };
+}

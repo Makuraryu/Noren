@@ -45,6 +45,7 @@ pub const client = struct {
     pub const remote = @import("client/remote.zig");
 };
 pub const server = struct {
+    pub const reactor = @import("server/reactor.zig");
     pub const transport = @import("server/transport.zig");
     pub const session = @import("server/session.zig");
 };
@@ -75,5 +76,6 @@ test {
     _ = client.interactive;
     _ = client.remote;
     _ = server.transport;
+    _ = server.reactor;
     _ = server.session;
 }

@@ -1,6 +1,6 @@
 # Implementation status
 
-Version 0.2.0 completes the specification's M0 through M2 milestones.
+Version 0.4.0 completes the specification's M0 through M4 milestones.
 
 | Area | Status | Notes |
 | --- | --- | --- |
@@ -12,13 +12,15 @@ Version 0.2.0 completes the specification's M0 through M2 milestones.
 | IPC framing and bounds | Complete | Fragmentation/coalescing tested |
 | Prefix router and config defaults | Complete | Validated, bounded values |
 | POSIX PTY and libvterm | Complete | Real PTY, libvterm 0.3.3, raw-mode client |
-| Unix socket Server/Client | Complete M2 | Persistent one-Pane Session |
+| Unix socket Server/Client | Complete M4 | Persistent multi-Pane Session |
 | Full/diff rendering | Complete M2 | Full attach snapshot, Canvas cell diffs |
 | Client backpressure | Complete M2 | 4 MiB non-blocking bounded queue |
-| Interactive Pane strip | Planned M3 | Model/layout behavior is ready |
-| Workspaces and multi-client UI | Planned M4–M6 | Model behavior is ready |
+| Interactive Pane strip | Complete M3 | Independent PTY, width, focus and camera |
+| Interactive Workspaces | Complete M4 | Independent focus/camera and auto removal |
+| Multi-client and Session switching | Planned M5 | Current Server owns one Session/Client |
 
-The M2 runtime supports one persistent Session and one Pane. `new -d`, `attach`
-and `Ctrl-b d` are available. Multiple interactive Panes and Workspaces remain
-unavailable until M3/M4. This staging follows section 25 of the normative
-specification.
+The M4 runtime supports one persistent Session with multiple interactive Panes
+and Workspaces. `new -d`, `attach`, detach/reattach, horizontal camera
+navigation, independent Pane resize, Workspace switching, and asynchronous
+close escalation are available. Multi-Client size ownership and application
+Session switching remain staged for M5.

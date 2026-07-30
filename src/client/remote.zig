@@ -65,35 +65,76 @@ pub fn run(allocator: std.mem.Allocator, options: Options) !void {
                         forwarded[count] = value;
                         count += 1;
                     },
-                    .command => |command| switch (command) {
-                        .send_prefix => {
-                            forwarded[count] = prefix.prefix_byte;
-                            count += 1;
-                        },
-                        .detach => {
-                            if (count > 0) {
-                                try stream.send(
-                                    allocator,
-                                    .input_bytes,
-                                    0,
-                                    forwarded[0..count],
-                                );
-                                count = 0;
-                            }
+                    .command => |command| {
+                        if (count > 0) {
                             try stream.send(
                                 allocator,
-                                .detach_request,
-                                3,
-                                "{\"reason\":\"requested\"}",
+                                .input_bytes,
+                                0,
+                                forwarded[0..count],
                             );
-                        },
-                        .close_pane => try stream.send(
-                            allocator,
-                            .command_request,
-                            5,
-                            "{\"command\":\"close-pane\"}",
-                        ),
-                        else => try outer.write("\x07"),
+                            count = 0;
+                        }
+                        switch (command) {
+                            .send_prefix => {
+                                forwarded[count] = prefix.prefix_byte;
+                                count += 1;
+                            },
+                            .detach => {
+                                try stream.send(
+                                    allocator,
+                                    .detach_request,
+                                    3,
+                                    "{\"reason\":\"requested\"}",
+                                );
+                            },
+                            .new_pane => try sendCommand(
+                                allocator,
+                                &stream,
+                                "new-pane",
+                            ),
+                            .close_pane => try sendCommand(
+                                allocator,
+                                &stream,
+                                "close-pane",
+                            ),
+                            .focus_left => try sendCommand(
+                                allocator,
+                                &stream,
+                                "focus-left",
+                            ),
+                            .focus_right => try sendCommand(
+                                allocator,
+                                &stream,
+                                "focus-right",
+                            ),
+                            .focus_up => try sendCommand(
+                                allocator,
+                                &stream,
+                                "focus-up",
+                            ),
+                            .focus_down => try sendCommand(
+                                allocator,
+                                &stream,
+                                "focus-down",
+                            ),
+                            .resize_narrower => try sendCommand(
+                                allocator,
+                                &stream,
+                                "resize-narrower",
+                            ),
+                            .resize_wider => try sendCommand(
+                                allocator,
+                                &stream,
+                                "resize-wider",
+                            ),
+                            .new_workspace => try sendCommand(
+                                allocator,
+                                &stream,
+                                "new-workspace",
+                            ),
+                            else => try outer.write("\x07"),
+                        }
                     },
                     .wait => {},
                     .rejected => try outer.write("\x07"),
@@ -165,4 +206,16 @@ fn sendResize(
     });
     defer allocator.free(payload);
     try stream.send(allocator, .client_resize, 0, payload);
+}
+
+fn sendCommand(
+    allocator: std.mem.Allocator,
+    stream: *transport.Stream,
+    command: []const u8,
+) !void {
+    const payload = try control.encode(allocator, control.Command{
+        .command = command,
+    });
+    defer allocator.free(payload);
+    try stream.send(allocator, .command_request, 5, payload);
 }

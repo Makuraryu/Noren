@@ -43,17 +43,18 @@ fn run(
     const command = if (args.len > 1) args[1] else "new";
 
     if (std.mem.eql(u8, command, "version") or std.mem.eql(u8, command, "--version")) {
-        try stdout.writeAll("noren 0.2.0 (M2)\n");
+        try stdout.writeAll("noren 0.4.0 (M4)\n");
         return 0;
     }
     if (std.mem.eql(u8, command, "info")) {
         try stdout.writeAll(
-            \\Noren 0.2.0
-            \\implementation stage: M2 (persistent single-Session server)
+            \\Noren 0.4.0
+            \\implementation stage: M4 (horizontal Panes and Workspaces)
             \\protocol: NRN1 1.0
             \\target Zig: 0.16.0
             \\PTY runtime: enabled
             \\persistent server/attach: enabled
+            \\horizontal Panes/Workspaces: enabled
             \\
         );
         return 0;
@@ -92,7 +93,7 @@ fn printHelp(writer: *std.Io.Writer) !void {
     try writer.writeAll(
         \\Usage: noren <command>
         \\
-        \\Commands available in 0.2.0:
+        \\Commands available in 0.4.0:
         \\  new [-d] [-s NAME] [-c DIR] [-- COMMAND...]
         \\                      Create a persistent Session; attach unless -d
         \\  attach [-t NAME]    Attach to the running Session
@@ -101,7 +102,11 @@ fn printHelp(writer: *std.Io.Writer) !void {
         \\  debug model-demo    Exercise the model and layout renderer
         \\  help                Show this help
         \\
-        \\Inside a Session, press Ctrl-b then d to detach.
+        \\Inside a Session, press Ctrl-b then:
+        \\  c/x            create/close Pane
+        \\  arrows         focus Pane or Workspace
+        \\  H/L            narrow/widen Pane by 5 cells
+        \\  n/d            create Workspace/detach
         \\
     );
 }
@@ -265,6 +270,9 @@ fn runServer(
 
     try noren.server.session.run(allocator, .{
         .argv = child_command,
+        .default_argv = &.{
+            child_environment.get("SHELL") orelse "/bin/sh",
+        },
         .cwd = parsed.cwd,
         .environment = environment_entries,
         .session_name = parsed.session_name,
