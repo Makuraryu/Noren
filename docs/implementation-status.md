@@ -1,6 +1,6 @@
 # Implementation status
 
-Version 0.4.2 completes the specification's M0 through M4 milestones.
+Version 0.4.3 completes the specification's M0 through M4 milestones.
 
 | Area | Status | Notes |
 | --- | --- | --- |

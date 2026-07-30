@@ -1,0 +1,87 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing v-prefixed tag to publish
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build Linux release
+    runs-on: ubuntu-latest
+    env:
+      RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+
+    steps:
+      - name: Check out the release tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      - name: Install Zig
+        uses: mlugg/setup-zig@v2
+        with:
+          version: 0.16.0
+
+      - name: Test
+        run: |
+          zig fmt --check src tests build.zig
+          zig build test
+          zig build test-integration
+
+      - name: Build static Linux binaries
+        run: |
+          mkdir -p dist/x86_64 dist/aarch64
+          zig build \
+            -Dtarget=x86_64-linux-musl \
+            -Doptimize=ReleaseSmall \
+            --prefix "$PWD/dist/x86_64"
+          zig build \
+            -Dtarget=aarch64-linux-musl \
+            -Doptimize=ReleaseSmall \
+            --prefix "$PWD/dist/aarch64"
+          cp dist/x86_64/bin/noren dist/noren-linux-x86_64
+          cp dist/aarch64/bin/noren dist/noren-linux-aarch64
+          chmod 755 dist/noren-linux-x86_64 dist/noren-linux-aarch64
+          cp install.sh dist/install.sh
+
+      - name: Verify version and static linkage
+        run: |
+          expected_version="${RELEASE_TAG#v}"
+          ./dist/noren-linux-x86_64 version | grep -F "noren $expected_version "
+          for binary in dist/noren-linux-aarch64 dist/noren-linux-x86_64; do
+            if readelf --program-headers "$binary" |
+              grep -q "Requesting program interpreter"; then
+              echo "$binary is dynamically linked" >&2
+              exit 1
+            fi
+            echo "$binary is statically linked"
+          done
+
+      - name: Generate checksums
+        working-directory: dist
+        run: sha256sum install.sh noren-linux-aarch64 noren-linux-x86_64 > checksums.txt
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$RELEASE_TAG" \
+            dist/install.sh \
+            dist/noren-linux-aarch64 \
+            dist/noren-linux-x86_64 \
+            dist/checksums.txt \
+            --draft \
+            --generate-notes \
+            --title "Noren ${RELEASE_TAG#v}" \
+            --verify-tag
+          gh release edit "$RELEASE_TAG" --draft=false --latest
