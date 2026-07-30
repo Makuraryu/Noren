@@ -48,6 +48,10 @@ that writes to the Tap repository.
    "$install_dir/noren" version
    ```
 
+   The `Installer smoke test` workflow runs the same public installation on a
+   clean Ubuntu runner after a successful Release workflow. Confirm that it
+   passes.
+
 7. Calculate the new source archive checksum:
 
    ```sh
