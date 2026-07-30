@@ -2,13 +2,13 @@
 
 Noren is a scrolling terminal multiplexer built around horizontal workspaces.
 
-This repository contains Noren `0.4.2`, the completed **M0–M4
+This repository contains Noren `0.4.3`, the completed **M0–M4
 persistent Server, horizontal Pane and Workspace milestones** from
 [`Noren-Agent-开发规范.md`](Noren-Agent-%E5%BC%80%E5%8F%91%E8%A7%84%E8%8C%83.md).
 It runs a shell or command in a Server-owned PTY, parses terminal output with
 pinned libvterm, and lets a client detach and later recover the latest screen.
 
-## What works in 0.4.2
+## What works in 0.4.3
 
 - Monotonic stable IDs for Sessions, Workspaces, Panes, Clients, Layers and
   asynchronous events.
@@ -52,6 +52,31 @@ pinned libvterm, and lets a client detach and later recover the latest screen.
 The current runtime intentionally permits one Server-owned Session and one
 attached Client at a time. Multi-Client and multi-Session switching are M5.
 See [the implementation status](docs/implementation-status.md).
+
+## Install on a Linux VPS
+
+Install the latest release with one command:
+
+```sh
+curl -fsSL https://github.com/Makuraryu/Noren/releases/latest/download/install.sh | sh
+```
+
+The installer supports x86_64 and arm64 Linux. It verifies the release
+checksum, then installs to `/usr/local/bin` when writable or
+`$HOME/.local/bin` otherwise. To install system-wide from an unprivileged
+account:
+
+```sh
+curl -fsSL https://github.com/Makuraryu/Noren/releases/latest/download/install.sh | sudo sh
+```
+
+Run the same command again to upgrade. Set `NOREN_VERSION` on the installer
+process to pin a release:
+
+```sh
+curl -fsSL https://github.com/Makuraryu/Noren/releases/latest/download/install.sh \
+  | env NOREN_VERSION=v0.4.3 sh
+```
 
 ## Build
 
