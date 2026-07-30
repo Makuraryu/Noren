@@ -29,6 +29,7 @@ pub fn run(allocator: std.mem.Allocator, options: Options) !void {
     var parser: frame.Parser = .{};
     defer parser.deinit(allocator);
     var prefix: prefix_mod.Router = .{};
+    var prefix_menu_visible = false;
     var rename_prompt: RenamePrompt = .{};
     defer rename_prompt.deinit(allocator);
     var attached = false;
@@ -95,7 +96,24 @@ pub fn run(allocator: std.mem.Allocator, options: Options) !void {
                         break;
                     }
                     const byte = bytes[input_index];
-                    switch (prefix.feed(byte)) {
+                    const route = prefix.feed(byte);
+                    const next_menu_visible = prefix.menuActive();
+                    if (next_menu_visible != prefix_menu_visible and count > 0) {
+                        try stream.send(
+                            allocator,
+                            .input_bytes,
+                            0,
+                            forwarded[0..count],
+                        );
+                        count = 0;
+                    }
+                    try syncPrefixMenu(
+                        allocator,
+                        &stream,
+                        &prefix_menu_visible,
+                        next_menu_visible,
+                    );
+                    switch (route) {
                         .forward => |value| {
                             forwarded[count] = value;
                             count += 1;
@@ -151,6 +169,16 @@ pub fn run(allocator: std.mem.Allocator, options: Options) !void {
                                     &stream,
                                     "focus-down",
                                 ),
+                                .scroll_left => try sendCommand(
+                                    allocator,
+                                    &stream,
+                                    "scroll-left",
+                                ),
+                                .scroll_right => try sendCommand(
+                                    allocator,
+                                    &stream,
+                                    "scroll-right",
+                                ),
                                 .resize_narrower => try sendCommand(
                                     allocator,
                                     &stream,
@@ -175,6 +203,7 @@ pub fn run(allocator: std.mem.Allocator, options: Options) !void {
                                         size,
                                     );
                                 },
+                                .dismiss_prefix => {},
                                 else => try outer.write("\x07"),
                             }
                         },
@@ -271,6 +300,22 @@ fn sendCommand(
     });
     defer allocator.free(payload);
     try stream.send(allocator, .command_request, 5, payload);
+}
+
+fn syncPrefixMenu(
+    allocator: std.mem.Allocator,
+    stream: *transport.Stream,
+    visible: *bool,
+    next: bool,
+) !void {
+    if (visible.* == next) return;
+    const payload = try control.encode(allocator, control.Command{
+        .command = "prefix-menu",
+        .value = if (next) "open" else "closed",
+    });
+    defer allocator.free(payload);
+    try stream.send(allocator, .command_request, 5, payload);
+    visible.* = next;
 }
 
 const RenamePrompt = struct {

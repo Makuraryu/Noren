@@ -24,6 +24,7 @@ pub const StatusInfo = struct {
     time_text: []const u8,
     workspace_number: usize,
     pane_number: usize,
+    prefix_menu: bool = false,
 };
 
 pub fn drawWorkspace(
@@ -70,6 +71,7 @@ pub fn drawPaneSurface(
         "--:--",
         workspace_number,
         pane_number,
+        false,
     );
 }
 
@@ -82,6 +84,7 @@ pub fn drawWorkspaceSurfaces(
     time_text: []const u8,
     workspace_number: usize,
     pane_number: usize,
+    prefix_menu: bool,
 ) !void {
     canvas.clear();
     for (placements) |placement| {
@@ -96,6 +99,7 @@ pub fn drawWorkspaceSurfaces(
             .time_text = time_text,
             .workspace_number = workspace_number,
             .pane_number = pane_number,
+            .prefix_menu = prefix_menu,
         });
     }
 }
@@ -188,7 +192,10 @@ const Nord = struct {
     const snow_storm = rgb(236, 239, 244);
     const frost_cyan = rgb(136, 192, 208);
     const frost_blue = rgb(129, 161, 193);
+    const frost_purple = rgb(180, 142, 173);
     const aurora_green = rgb(163, 190, 140);
+    const aurora_yellow = rgb(235, 203, 139);
+    const aurora_orange = rgb(208, 135, 112);
 };
 
 fn drawStatusBar(canvas: *Canvas, y: i32, info: StatusInfo) !void {
@@ -224,6 +231,10 @@ fn drawStatusBar(canvas: *Canvas, y: i32, info: StatusInfo) !void {
         Nord.polar_night,
         background,
     ) + 1;
+    if (info.prefix_menu) {
+        drawPrefixMenu(canvas, y, left, background);
+        return;
+    }
     _ = drawCapsule(
         canvas,
         left,
@@ -262,6 +273,41 @@ fn drawStatusBar(canvas: *Canvas, y: i32, info: StatusInfo) !void {
         Nord.polar_night,
         background,
     );
+}
+
+fn drawPrefixMenu(
+    canvas: *Canvas,
+    y: i32,
+    start_x: i32,
+    background: cell_mod.Color,
+) void {
+    const hints = [_]struct {
+        text: []const u8,
+        color: cell_mod.Color,
+        text_color: cell_mod.Color = Nord.polar_night,
+    }{
+        .{ .text = " c", .color = Nord.frost_blue },
+        .{ .text = "󰆴 x", .color = Nord.aurora_orange },
+        .{ .text = "󰍽 []", .color = Nord.frost_cyan },
+        .{ .text = "󰍾 h/l", .color = Nord.aurora_yellow },
+        .{ .text = "󰕮 n", .color = Nord.aurora_green },
+        .{ .text = "󰁍 ←↑↓→", .color = Nord.frost_purple },
+        .{ .text = "󰑕 ,", .color = Nord.frost_blue },
+        .{ .text = "󰿅 d", .color = Nord.polar_night_light, .text_color = Nord.snow_storm },
+    };
+    var x = start_x;
+    for (hints) |hint| {
+        if (x >= canvas.width) break;
+        x = drawCapsule(
+            canvas,
+            x,
+            y,
+            hint.text,
+            hint.color,
+            hint.text_color,
+            background,
+        ) + 1;
+    }
 }
 
 fn drawCapsule(
@@ -376,6 +422,7 @@ test "status reports active workspace and focused pane numbers" {
         "12:34",
         2,
         3,
+        false,
     );
     var dump: std.Io.Writer.Allocating = .init(allocator);
     defer dump.deinit();
@@ -394,4 +441,31 @@ test "status reports active workspace and focused pane numbers" {
         "",
         canvas.get(canvas.width - 1, 3).grapheme.slice(),
     );
+}
+
+test "active prefix menu replaces session status with Nerd Font key hints" {
+    const allocator = std.testing.allocator;
+    var canvas = try Canvas.init(allocator, 80, 4);
+    defer canvas.deinit(allocator);
+    try drawWorkspaceSurfaces(
+        &canvas,
+        &.{},
+        &.{},
+        0,
+        "work",
+        "12:34",
+        2,
+        3,
+        true,
+    );
+    var dump: std.Io.Writer.Allocating = .init(allocator);
+    defer dump.deinit();
+    try canvas.writeTextDump(&dump.writer);
+    try std.testing.expect(std.mem.indexOf(u8, dump.written(), "Ctrl+b") != null);
+    try std.testing.expect(std.mem.indexOf(u8, dump.written(), " c") != null);
+    try std.testing.expect(std.mem.indexOf(u8, dump.written(), "󰍽 []") != null);
+    try std.testing.expect(std.mem.indexOf(u8, dump.written(), "󰍾 h/l") != null);
+    try std.testing.expect(std.mem.indexOf(u8, dump.written(), "󰿅 d") != null);
+    try std.testing.expect(std.mem.indexOf(u8, dump.written(), "session:work") == null);
+    try std.testing.expect(std.mem.indexOf(u8, dump.written(), "12:34") == null);
 }

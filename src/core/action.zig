@@ -32,6 +32,12 @@ pub const ResizePane = struct {
     viewport_width: u16,
 };
 
+pub const ScrollCamera = struct {
+    session_id: ids.SessionId,
+    delta: i32,
+    viewport_width: u16,
+};
+
 pub const RenameSession = struct {
     session_id: ids.SessionId,
     name: []const u8,
@@ -58,6 +64,7 @@ pub const Action = union(enum) {
     pane_drained: ids.PaneId,
     resize_pane: ResizePane,
     focus_pane: FocusPane,
+    scroll_camera: ScrollCamera,
 
     new_workspace: NewWorkspace,
     focus_workspace: struct {

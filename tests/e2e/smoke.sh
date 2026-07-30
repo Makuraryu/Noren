@@ -2,6 +2,8 @@
 set -eu
 
 noren_bin=$1
+host_tmp=${TMPDIR:-/tmp}
+runtime_dir=$(mktemp -d "$host_tmp/noren-e2e-runtime.XXXXXX")
 capture_file=$(mktemp "${TMPDIR:-/tmp}/noren-e2e.XXXXXX")
 stdout_file=$(mktemp "${TMPDIR:-/tmp}/noren-e2e-stdout.XXXXXX")
 nvim_capture_file=$(mktemp "${TMPDIR:-/tmp}/noren-nvim-e2e.XXXXXX")
@@ -10,9 +12,10 @@ detach_capture_file=$(mktemp "${TMPDIR:-/tmp}/noren-detach-e2e.XXXXXX")
 detach_stdout_file=$(mktemp "${TMPDIR:-/tmp}/noren-detach-e2e-stdout.XXXXXX")
 multi_capture_file=$(mktemp "${TMPDIR:-/tmp}/noren-multi-e2e.XXXXXX")
 multi_stdout_file=$(mktemp "${TMPDIR:-/tmp}/noren-multi-e2e-stdout.XXXXXX")
-trap 'rm -f "$capture_file" "$stdout_file" "$nvim_capture_file" "$nvim_stdout_file" "$detach_capture_file" "$detach_stdout_file" "$multi_capture_file" "$multi_stdout_file"' EXIT HUP INT TERM
+trap 'rm -f "$capture_file" "$stdout_file" "$nvim_capture_file" "$nvim_stdout_file" "$detach_capture_file" "$detach_stdout_file" "$multi_capture_file" "$multi_stdout_file"; rm -rf "$runtime_dir"' EXIT HUP INT TERM
 
 export NOREN_E2E_BIN="$noren_bin"
+export TMPDIR="$runtime_dir"
 e2e_dir=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
 case "$(uname -s)" in
     Darwin)

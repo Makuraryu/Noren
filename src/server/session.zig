@@ -98,6 +98,7 @@ pub fn run(allocator: std.mem.Allocator, options: Options) !void {
     var output_queue = BoundedByteQueue.init(client_output_limit);
     defer output_queue.deinit(allocator);
     var attached = false;
+    var prefix_menu_visible = false;
     var outer_rows = default_outer_rows;
     var outer_cols = default_outer_cols;
     var render_needed = false;
@@ -175,6 +176,7 @@ pub fn run(allocator: std.mem.Allocator, options: Options) !void {
                     &output_queue,
                     &attached,
                     &force_full,
+                    &prefix_menu_visible,
                 ),
                 .client => {
                     if (event.read and client != null) {
@@ -194,6 +196,7 @@ pub fn run(allocator: std.mem.Allocator, options: Options) !void {
                             &force_full,
                             &ever_attached,
                             &rendered_after_attach,
+                            &prefix_menu_visible,
                         ) catch |err| {
                             std.debug.print(
                                 "noren: client request failed: {s}\n",
@@ -205,6 +208,7 @@ pub fn run(allocator: std.mem.Allocator, options: Options) !void {
                                 &output_queue,
                                 allocator,
                                 &attached,
+                                &prefix_menu_visible,
                             );
                         };
                     }
@@ -216,6 +220,7 @@ pub fn run(allocator: std.mem.Allocator, options: Options) !void {
                                 &output_queue,
                                 allocator,
                                 &attached,
+                                &prefix_menu_visible,
                             );
                         };
                     }
@@ -288,6 +293,7 @@ pub fn run(allocator: std.mem.Allocator, options: Options) !void {
                 &panes,
                 outer_cols,
                 outer_rows,
+                prefix_menu_visible,
                 force_full,
             ) catch |err| {
                 std.debug.print(
@@ -300,6 +306,7 @@ pub fn run(allocator: std.mem.Allocator, options: Options) !void {
                     &output_queue,
                     allocator,
                     &attached,
+                    &prefix_menu_visible,
                 );
             };
             render_needed = false;
@@ -332,6 +339,7 @@ fn acceptClient(
     output_queue: *BoundedByteQueue,
     attached: *bool,
     force_full: *bool,
+    prefix_menu_visible: *bool,
 ) void {
     var incoming = listener.accept() catch return;
     if (client.* != null and attached.*) {
@@ -345,6 +353,7 @@ fn acceptClient(
     output_queue.consume(output_queue.len());
     attached.* = false;
     force_full.* = true;
+    prefix_menu_visible.* = false;
 }
 
 fn readClient(
@@ -363,6 +372,7 @@ fn readClient(
     force_full: *bool,
     ever_attached: *bool,
     rendered_after_attach: *bool,
+    prefix_menu_visible: *bool,
 ) !void {
     var buffer: [64 * 1024]u8 = undefined;
     switch (try client.*.?.read(&buffer)) {
@@ -386,13 +396,21 @@ fn readClient(
                     force_full,
                     ever_attached,
                     rendered_after_attach,
+                    prefix_menu_visible,
                     message,
                 );
                 if (client.* == null) break;
             }
         },
         .would_block => {},
-        .eof => disconnect(client, parser, output_queue, allocator, attached),
+        .eof => disconnect(
+            client,
+            parser,
+            output_queue,
+            allocator,
+            attached,
+            prefix_menu_visible,
+        ),
     }
 }
 
@@ -411,6 +429,7 @@ fn handleMessage(
     force_full: *bool,
     ever_attached: *bool,
     rendered_after_attach: *bool,
+    prefix_menu_visible: *bool,
     message: frame.OwnedFrame,
 ) !void {
     if (message.header.version.major != 1) return error.ProtocolVersionMismatch;
@@ -459,6 +478,7 @@ fn handleMessage(
                 payload,
             );
             attached.* = true;
+            prefix_menu_visible.* = false;
             ever_attached.* = true;
             render_needed.* = true;
             force_full.* = true;
@@ -489,6 +509,15 @@ fn handleMessage(
         .command_request => if (attached.*) {
             var parsed = try control.decode(control.Command, allocator, message.payload);
             defer parsed.deinit();
+            if (std.mem.eql(u8, parsed.value.command, "prefix-menu")) {
+                prefix_menu_visible.* = std.mem.eql(
+                    u8,
+                    parsed.value.value orelse "",
+                    "open",
+                );
+                render_needed.* = true;
+                return;
+            }
             handleCommand(
                 allocator,
                 model,
@@ -540,6 +569,7 @@ fn handleMessage(
             client.* = null;
             output_queue.consume(output_queue.len());
             attached.* = false;
+            prefix_menu_visible.* = false;
         },
         .ping => try queueFrame(
             allocator,
@@ -594,6 +624,18 @@ fn handleCommand(
         .{ .focus_workspace = .{
             .session_id = session_id,
             .direction = .down,
+        } }
+    else if (std.mem.eql(u8, command, "scroll-left"))
+        .{ .scroll_camera = .{
+            .session_id = session_id,
+            .delta = -1,
+            .viewport_width = viewport_width,
+        } }
+    else if (std.mem.eql(u8, command, "scroll-right"))
+        .{ .scroll_camera = .{
+            .session_id = session_id,
+            .delta = 1,
+            .viewport_width = viewport_width,
         } }
     else if (std.mem.eql(u8, command, "resize-narrower"))
         .{ .resize_pane = .{
@@ -966,6 +1008,7 @@ fn sendRender(
     panes: *std.AutoHashMapUnmanaged(ids.PaneId, PaneRuntime),
     cols: u16,
     rows: u16,
+    prefix_menu_visible: bool,
     force_full: bool,
 ) !void {
     const session = model.sessions.getPtr(session_id) orelse
@@ -1016,6 +1059,7 @@ fn sendRender(
         time_text,
         session.active_workspace + 1,
         workspace.focused_pane + 1,
+        prefix_menu_visible,
         force_full,
     );
     defer allocator.free(payload);
@@ -1028,6 +1072,7 @@ fn disconnect(
     output_queue: *BoundedByteQueue,
     allocator: std.mem.Allocator,
     attached: *bool,
+    prefix_menu_visible: *bool,
 ) void {
     if (client.*) |*stream| stream.close();
     client.* = null;
@@ -1035,6 +1080,7 @@ fn disconnect(
     parser.* = .{};
     output_queue.consume(output_queue.len());
     attached.* = false;
+    prefix_menu_visible.* = false;
 }
 
 fn queueFrame(

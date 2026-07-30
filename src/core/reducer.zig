@@ -52,6 +52,7 @@ pub fn apply(
         .pane_drained => |pane_id| try removePane(allocator, server, pane_id),
         .resize_pane => |data| try resizePane(allocator, server, data, effects),
         .focus_pane => |data| try focusPane(server, data),
+        .scroll_camera => |data| try scrollCamera(server, data),
         .new_workspace => |data| try newWorkspace(allocator, server, data, effects),
         .focus_workspace => |data| try focusWorkspace(server, data.session_id, data.direction),
         .rename_session => |data| try renameSession(allocator, server, data),
@@ -298,6 +299,16 @@ fn focusPane(server: *model.ServerModel, data: action_mod.FocusPane) !void {
         else => return error.InvalidDirection,
     }
     revealFocused(server, workspace, data.viewport_width, data.direction);
+}
+
+fn scrollCamera(
+    server: *model.ServerModel,
+    data: action_mod.ScrollCamera,
+) !void {
+    const workspace = server.activeWorkspace(data.session_id) orelse
+        return error.SessionNotFound;
+    workspace.camera_x += data.delta;
+    clampCamera(server, workspace, data.viewport_width);
 }
 
 fn focusWorkspace(
@@ -662,6 +673,46 @@ test "new panes insert to the right without resizing existing panes" {
     try std.testing.expectEqual(@as(usize, 2), workspace.panes.items.len);
     try std.testing.expectEqual(@as(usize, 1), workspace.focused_pane);
     try std.testing.expectEqual(first_width, server.panes.get(first_id).?.outer_width);
+}
+
+test "camera scroll moves one cell and clamps to workspace bounds" {
+    const allocator = std.testing.allocator;
+    var server = model.ServerModel.init();
+    defer server.deinit(allocator);
+    const session_id = try server.createSession(allocator, "work", 40, 24);
+    var effects: std.ArrayList(effect_mod.Effect) = .empty;
+    defer effects.deinit(allocator);
+
+    try apply(
+        allocator,
+        &server,
+        .{ .server = {} },
+        .{ .scroll_camera = .{
+            .session_id = session_id,
+            .delta = 1,
+            .viewport_width = 40,
+        } },
+        &effects,
+    );
+    try std.testing.expectEqual(
+        @as(i64, 1),
+        server.activeWorkspace(session_id).?.camera_x,
+    );
+    try apply(
+        allocator,
+        &server,
+        .{ .server = {} },
+        .{ .scroll_camera = .{
+            .session_id = session_id,
+            .delta = -10,
+            .viewport_width = 40,
+        } },
+        &effects,
+    );
+    try std.testing.expectEqual(
+        @as(i64, 0),
+        server.activeWorkspace(session_id).?.camera_x,
+    );
 }
 
 test "non-owner resize never changes canonical pane rows" {

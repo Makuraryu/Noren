@@ -2,13 +2,13 @@
 
 Noren is a scrolling terminal multiplexer built around horizontal workspaces.
 
-This repository contains Noren `0.4.1`, the completed **M0–M4
+This repository contains Noren `0.4.2`, the completed **M0–M4
 persistent Server, horizontal Pane and Workspace milestones** from
 [`Noren-Agent-开发规范.md`](Noren-Agent-%E5%BC%80%E5%8F%91%E8%A7%84%E8%8C%83.md).
 It runs a shell or command in a Server-owned PTY, parses terminal output with
 pinned libvterm, and lets a client detach and later recover the latest screen.
 
-## What works in 0.4.1
+## What works in 0.4.2
 
 - Monotonic stable IDs for Sessions, Workspaces, Panes, Clients, Layers and
   asynchronous events.
@@ -44,6 +44,8 @@ pinned libvterm, and lets a client detach and later recover the latest screen.
 - Reactor-driven asynchronous Pane close escalation without blocking sleeps.
 - A Nord truecolor status bar with separate `Ctrl+b`, Session, local time and
   `workspace:pane` capsules.
+- An interactive `Ctrl+b` status menu with Nerd Font icon/key capsules and
+  continuous Pane width/camera adjustment.
 - Interactive Session rename with the new name immediately becoming the
   attach target.
 
@@ -88,10 +90,12 @@ zig build run -- new -s build -- /bin/sh -c 'printf "hello\n"'
 Inside a Session, ordinary bytes go to the Pane. Prefix keys are:
 
 - `Ctrl-b`, then `c`: create a Pane to the right and focus it.
-- `Ctrl-b`, then `Left`/`Right`: focus the adjacent Pane.
+- `Ctrl-b`, then `Left`/`Right`: focus the adjacent Pane and reveal it as a
+  whole.
 - `Ctrl-b`, then `Up`/`Down`: switch Workspace.
-- `Ctrl-b`, then `h`/`l`/`k`/`j`: keyboard aliases for the four directions.
-- `Ctrl-b`, then `H`/`L`: narrow/widen the focused Pane by 5 cells.
+- `Ctrl-b`, then `h`/`l`: move the horizontal camera left/right by one terminal
+  cell.
+- `Ctrl-b`, then `[`/`]`: narrow/widen the focused Pane by 5 cells.
 - `Ctrl-b`, then `n`: create a Workspace below and focus its first Pane.
 - `Ctrl-b`, then `x`: asynchronously close the focused Pane.
 - `Ctrl-b`, then `d`: detach; the command keeps running.
@@ -99,9 +103,14 @@ Inside a Session, ordinary bytes go to the Pane. Prefix keys are:
   cancels.
 - `Ctrl-b`, then `Ctrl-b`: send a literal `Ctrl-b` to the command.
 
+Pressing `Ctrl-b` replaces the normal status capsules with the available
+Nerd Font icon/key hints. After `[`/`]` or `h`/`l`, prefix mode remains active,
+so those four keys can be repeated directly. Press `Ctrl-b` again to leave
+continuous adjustment, or press another menu key to execute it and leave.
+
 Unimplemented reserved prefix commands ring the terminal bell.
 
-Pane width is absolute and independent. Changing the focused Pane with `H/L`
+Pane width is absolute and independent. Changing the focused Pane with `[`/`]`
 does not squeeze or resize neighboring Panes; the horizontal camera moves only
 when necessary to keep the focus visible.
 

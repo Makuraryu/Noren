@@ -32,6 +32,7 @@ pub const Renderer = struct {
         time_text: []const u8,
         workspace_number: usize,
         pane_number: usize,
+        prefix_menu: bool,
         force_full: bool,
     ) ![]u8 {
         if (outer_cols < 3 or outer_rows < 4) return error.TerminalTooSmall;
@@ -83,6 +84,7 @@ pub const Renderer = struct {
             time_text,
             workspace_number,
             pane_number,
+            prefix_menu,
         );
         const cursor = focusedCursor(
             backends,

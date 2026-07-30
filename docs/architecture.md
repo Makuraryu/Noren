@@ -41,8 +41,10 @@ Action. This keeps failed syscalls from being represented as successful state.
 - `config`: validated policy values and hard resource limits.
 
 The M4 Server owns every Pane PTY and terminal backend. The client owns only
-outer-TTY raw mode, prefix routing, and IPC. A disconnect therefore cannot
-terminate or invalidate a Pane.
+outer-TTY raw mode, prefix routing, and IPC. It synchronizes the ephemeral
+prefix-menu visibility to the Server compositor; this presentation state is
+reset on attach or disconnect and is not part of the durable model. A
+disconnect therefore cannot terminate or invalidate a Pane.
 
 ## Lifecycles
 

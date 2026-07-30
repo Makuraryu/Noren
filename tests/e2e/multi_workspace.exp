@@ -29,7 +29,9 @@ send -- "printf 'PANE1_OK\\n'\r"
 pause_and_drain 250
 
 # New Pane is inserted to the focused Pane's right and receives focus.
-send -- "\002c"
+send -- "\002"
+pause_and_drain 250
+send -- "c"
 pause_and_drain 700
 send -- "printf 'PANE2_OK\\n'\r"
 pause_and_drain 500
@@ -41,9 +43,23 @@ send -- "printf 'LEFT_OK\\n'\r"
 pause_and_drain 500
 send -- "\002\033\[C"
 pause_and_drain 300
-send -- "\002H"
+# Brackets resize repeatedly without leaving prefix mode. h/l move the
+# horizontal camera one terminal cell and are sticky for the same reason.
+send -- "\002"
+pause_and_drain 250
+send -- "\["
 pause_and_drain 300
-send -- "\002L"
+send -- "\["
+pause_and_drain 300
+send -- "\]"
+pause_and_drain 300
+send -- "\]"
+pause_and_drain 300
+send -- "h"
+pause_and_drain 300
+send -- "l"
+pause_and_drain 300
+send -- "\002"
 pause_and_drain 300
 send -- "printf 'RIGHT_OK\\n'\r"
 pause_and_drain 500
