@@ -5,6 +5,39 @@ const installCommand = 'brew install Makuraryu/tap/noren'
 const copied = ref(false)
 let copyTimer
 let revealObserver
+let pointerFrame
+let pointerTracking = false
+let pointerTargetX = 0
+let pointerTargetY = 0
+
+function applyPixelBlastPointer(x = 0, y = 0) {
+  const root = document.documentElement
+  root.style.setProperty('--pixel-blast-x', `${(x * 18).toFixed(2)}px`)
+  root.style.setProperty('--pixel-blast-y', `${(y * 14).toFixed(2)}px`)
+  root.style.setProperty('--pixel-blast-x-reverse', `${(x * -12).toFixed(2)}px`)
+  root.style.setProperty('--pixel-blast-y-reverse', `${(y * -9).toFixed(2)}px`)
+}
+
+function handlePointerMove(event) {
+  if (event.pointerType && event.pointerType !== 'mouse') return
+
+  pointerTargetX = (event.clientX / window.innerWidth - 0.5) * 2
+  pointerTargetY = (event.clientY / window.innerHeight - 0.5) * 2
+  if (pointerFrame) return
+
+  pointerFrame = window.requestAnimationFrame(() => {
+    applyPixelBlastPointer(pointerTargetX, pointerTargetY)
+    pointerFrame = undefined
+  })
+}
+
+function resetPixelBlastPointer() {
+  if (pointerFrame) {
+    window.cancelAnimationFrame(pointerFrame)
+    pointerFrame = undefined
+  }
+  applyPixelBlastPointer()
+}
 
 async function copyInstallCommand() {
   try {
@@ -32,16 +65,28 @@ onMounted(() => {
   )
 
   revealItems.forEach((item) => revealObserver.observe(item))
+
+  if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    pointerTracking = true
+    window.addEventListener('pointermove', handlePointerMove, { passive: true })
+    window.addEventListener('blur', resetPixelBlastPointer)
+  }
 })
 
 onUnmounted(() => {
   revealObserver?.disconnect()
   window.clearTimeout(copyTimer)
+  if (pointerTracking) {
+    window.removeEventListener('pointermove', handlePointerMove)
+    window.removeEventListener('blur', resetPixelBlastPointer)
+    resetPixelBlastPointer()
+  }
 })
 </script>
 
 <template>
   <div class="site-shell">
+    <div class="pixel-blast" aria-hidden="true"></div>
     <header class="site-header" aria-label="Primary navigation">
       <a class="wordmark" href="#top" aria-label="Noren home">
         <svg aria-hidden="true" viewBox="0 0 32 32">
@@ -117,40 +162,12 @@ onUnmounted(() => {
           <p class="platform-note">Open source · macOS &amp; Linux</p>
         </div>
 
-        <div class="hero-diagram" data-reveal aria-label="Scrollable tiling diagram">
-          <div class="diagram-window">
-            <div class="diagram-titlebar">
-              <span>noren attach</span>
-              <span>scrollable tiling</span>
-            </div>
-            <pre class="diagram-art" aria-hidden="true">╭─ work ─────────────────────────────────╮
-│ ~/Noren  ?  $ nvim                     │
-│                                        │
-│  persistent server                     │
-│  horizontal panes                      │
-╰────────────────────────────────────────╯
-       ⇆  scroll  ·  focus  ·  detach
-╭─ review ─────────────╮  ╭─ notes ─────╮
-│ tests                 │  │ ideas      │
-│ logs                  │  │ next       │
-╰──────────────────────╯  ╰────────────╯</pre>
-            <div class="diagram-footer">
-              <span>workspace:work</span>
-              <span>pane:1:2</span>
-            </div>
-          </div>
-          <div class="scene-caption">
-            <span>Scroll the work</span>
-            <span class="caption-line"></span>
-            <span>Keep the thread</span>
-          </div>
-        </div>
       </section>
 
       <section id="example" class="example section-wrap">
         <div class="example-heading" data-reveal>
           <p class="section-kicker">A real workspace</p>
-          <h2>The shape of Noren<br /><em>in the terminal.</em></h2>
+          <h2>Noren<br /><em>in the terminal.</em></h2>
           <p>
             One attach brings the whole session into view: a shell, an editor, and the workspaces you
             move through every day.
@@ -159,13 +176,13 @@ onUnmounted(() => {
         <figure class="example-figure" data-reveal>
           <div class="example-image-frame">
             <img
-              src="/noren-attach-example.png"
-              alt="Noren attach showing a shell, Neovim editor, workspace list, and status bar."
+              src="/noren.png"
+              alt="Noren showing a shell, Neovim editor, workspace list, and status bar."
               loading="lazy"
             />
           </div>
           <figcaption>
-            <span>noren attach</span>
+            <span>noren new</span>
             <span>persistent server · horizontal panes · workspace navigation</span>
           </figcaption>
         </figure>
