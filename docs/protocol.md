@@ -20,7 +20,7 @@ and multiple frames delivered in one read. It validates magic and length before
 allocating a payload. Control messages use validated UTF-8 JSON; raw input
 and render messages remain byte payloads.
 
-Protocol version in Noren 0.4.3 remains `1.0`. M4 adds structured
+Protocol version in Noren 0.4.4 remains `1.0`. M4 adds structured
 `command_request` messages for Pane, Workspace, camera, Session rename and
 ephemeral prefix-menu presentation state to the M2 `hello`/`welcome`,
 `attach_request`/`attached`, resize, input, render, detach and ping/pong

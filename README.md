@@ -2,13 +2,13 @@
 
 Noren is a scrolling terminal multiplexer built around horizontal workspaces.
 
-This repository contains Noren `0.4.3`, the completed **M0–M4
+This repository contains Noren `0.4.4`, the completed **M0–M4
 persistent Server, horizontal Pane and Workspace milestones** from
 [`Noren-Agent-开发规范.md`](Noren-Agent-%E5%BC%80%E5%8F%91%E8%A7%84%E8%8C%83.md).
 It runs a shell or command in a Server-owned PTY, parses terminal output with
 pinned libvterm, and lets a client detach and later recover the latest screen.
 
-## Unreleased changes after 0.4.3
+## What's new in 0.4.4
 
 - The child application's cursor visibility now follows its terminal state.
 - A left mouse click focuses the Pane under the pointer. When the child
@@ -21,7 +21,7 @@ pinned libvterm, and lets a client detach and later recover the latest screen.
   Arena, preventing transient frames and renders from accumulating forever.
 - Running `noren` without arguments safely follows the default `new` path.
 
-## What works in 0.4.3
+## What works in 0.4.4
 
 - Monotonic stable IDs for Sessions, Workspaces, Panes, Clients, Layers and
   asynchronous events.
@@ -104,7 +104,7 @@ process to pin a release:
 
 ```sh
 curl -fsSL https://github.com/Makuraryu/Noren/releases/latest/download/install.sh \
-  | env NOREN_VERSION=v0.4.3 sh
+  | env NOREN_VERSION=v0.4.4 sh
 ```
 
 Set `NOREN_INSTALL_DIR` to choose a custom destination:

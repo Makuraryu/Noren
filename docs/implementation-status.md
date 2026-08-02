@@ -1,7 +1,7 @@
 # Implementation status
 
-Version 0.4.3 completes the specification's M0 through M4 milestones.
-The current development tree additionally includes cursor synchronization,
+Version 0.4.4 completes the specification's M0 through M4 milestones and
+additionally includes cursor synchronization,
 Pane selection by mouse, application-aware mouse forwarding and runtime
 disconnect hardening.
 
