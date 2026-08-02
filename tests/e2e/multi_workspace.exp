@@ -21,7 +21,7 @@ proc pause_and_drain {milliseconds} {
 }
 
 spawn -noecho /bin/sh -c {
-    stty rows 24 cols 80
+    stty rows 24 cols 120
     exec "$NOREN_E2E_BIN" new -s multi -- /bin/sh
 }
 expect -re {session:multi}
@@ -34,6 +34,18 @@ pause_and_drain 250
 send -- "c"
 pause_and_drain 700
 send -- "printf 'PANE2_OK\\n'\r"
+pause_and_drain 500
+
+# SGR mouse clicks focus whichever visible Pane was hit. The shells do not
+# enable mouse reporting, so the click changes Pane focus without injecting
+# bytes into either shell.
+send -- "\033\[<0;11;6M\033\[<0;11;6m"
+pause_and_drain 400
+send -- "printf 'MOUSE_LEFT_OK\\n'\r"
+pause_and_drain 500
+send -- "\033\[<0;101;6M\033\[<0;101;6m"
+pause_and_drain 400
+send -- "printf 'MOUSE_RIGHT_OK\\n'\r"
 pause_and_drain 500
 
 # Exercise independent focus and width changes.
@@ -93,7 +105,7 @@ if {[lindex $detached_result 3] != 0} {
 }
 
 spawn -noecho /bin/sh -c {
-    stty rows 24 cols 80
+    stty rows 24 cols 120
     exec "$NOREN_E2E_BIN" attach -t multi-renamed
 }
 expect -re {session:multi-renamed}

@@ -26,6 +26,12 @@ pub const FocusPane = struct {
     viewport_width: u16,
 };
 
+pub const SelectPane = struct {
+    session_id: ids.SessionId,
+    pane_id: ids.PaneId,
+    viewport_width: u16,
+};
+
 pub const ResizePane = struct {
     session_id: ids.SessionId,
     delta: i32,
@@ -64,6 +70,7 @@ pub const Action = union(enum) {
     pane_drained: ids.PaneId,
     resize_pane: ResizePane,
     focus_pane: FocusPane,
+    select_pane: SelectPane,
     scroll_camera: ScrollCamera,
 
     new_workspace: NewWorkspace,

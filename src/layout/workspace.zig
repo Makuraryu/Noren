@@ -98,13 +98,7 @@ pub fn hitTest(
     y: i32,
 ) ?ids.PaneId {
     for (placements) |item| {
-        const visible = item.visible;
-        if (x >= visible.x and y >= visible.y and
-            x < visible.x + visible.width and
-            y < visible.y + visible.height)
-        {
-            return item.pane_id;
-        }
+        if (item.contains(x, y)) return item.pane_id;
     }
     return null;
 }
@@ -140,4 +134,9 @@ test "mouse hit testing follows clipped independent pane rectangles" {
     try std.testing.expectEqual(@as(ids.PaneId, @enumFromInt(1)), hitTest(placements.items, 1, 2).?);
     try std.testing.expectEqual(@as(ids.PaneId, @enumFromInt(2)), hitTest(placements.items, 6, 2).?);
     try std.testing.expect(hitTest(placements.items, 2, 6) == null);
+    const second = placements.items[1];
+    const content = second.contentPoint(6, 2).?;
+    try std.testing.expectEqual(@as(u16, 1), content.col);
+    try std.testing.expectEqual(@as(u16, 1), content.row);
+    try std.testing.expect(second.contentPoint(4, 0) == null);
 }

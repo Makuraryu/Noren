@@ -25,3 +25,10 @@ Protocol version in Noren 0.4.3 remains `1.0`. M4 adds structured
 ephemeral prefix-menu presentation state to the M2 `hello`/`welcome`,
 `attach_request`/`attached`, resize, input, render, detach and ping/pong
 messages over an owner-only Unix socket.
+
+Mouse clicks use the existing `input_event` message kind with a validated JSON
+payload containing zero-based outer-terminal `x`/`y`, button, pressed state and
+Shift/Alt/Ctrl modifiers. The Server performs layout hit-testing and never
+trusts a client-supplied Pane index. Border clicks focus a Pane only; content
+clicks are translated to the Pane's terminal coordinates and passed through
+libvterm so the child receives bytes only after enabling mouse reporting.

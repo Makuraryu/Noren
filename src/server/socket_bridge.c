@@ -26,6 +26,28 @@ static int set_nonblocking(int fd) {
     return flags < 0 ? -1 : fcntl(fd, F_SETFL, flags | O_NONBLOCK);
 }
 
+static int suppress_sigpipe(int fd) {
+#if defined(SO_NOSIGPIPE)
+    const int enabled = 1;
+    return setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, &enabled, sizeof(enabled));
+#else
+    (void)fd;
+    return 0;
+#endif
+}
+
+static ssize_t socket_write_no_signal(
+    int fd,
+    const uint8_t *buffer,
+    size_t length
+) {
+#if defined(MSG_NOSIGNAL)
+    return send(fd, buffer, length, MSG_NOSIGNAL);
+#else
+    return send(fd, buffer, length, 0);
+#endif
+}
+
 int noren_socket_prepare(const char *path) {
     if (path == NULL || strlen(path) >= sizeof(((struct sockaddr_un *)0)->sun_path)) {
         errno = ENAMETOOLONG;
@@ -58,6 +80,8 @@ int noren_socket_listen(const char *path) {
     }
     const int fd = socket(AF_UNIX, SOCK_STREAM, 0);
     if (fd < 0) return -1;
+    /* The listener never writes. Some platforms reject SO_NOSIGPIPE before
+     * a stream socket is connected, so apply it only to connected peers. */
     if (set_cloexec(fd) < 0 || set_nonblocking(fd) < 0) {
         close(fd);
         return -1;
@@ -79,7 +103,8 @@ int noren_socket_listen(const char *path) {
 int noren_socket_accept(int listener) {
     const int fd = accept(listener, NULL, NULL);
     if (fd < 0) return -1;
-    if (set_cloexec(fd) < 0 || set_nonblocking(fd) < 0) {
+    if (set_cloexec(fd) < 0 || set_nonblocking(fd) < 0 ||
+        suppress_sigpipe(fd) < 0) {
         close(fd);
         return -1;
     }
@@ -117,7 +142,7 @@ int noren_socket_connect(const char *path) {
     }
     const int fd = socket(AF_UNIX, SOCK_STREAM, 0);
     if (fd < 0) return -1;
-    if (set_cloexec(fd) < 0) {
+    if (set_cloexec(fd) < 0 || suppress_sigpipe(fd) < 0) {
         close(fd);
         return -1;
     }
@@ -133,6 +158,20 @@ int noren_socket_connect(const char *path) {
     return fd;
 }
 
+int noren_socket_pair(int fds[2]) {
+    if (fds == NULL || socketpair(AF_UNIX, SOCK_STREAM, 0, fds) != 0) {
+        return -1;
+    }
+    if (suppress_sigpipe(fds[0]) != 0 || suppress_sigpipe(fds[1]) != 0) {
+        const int saved = errno;
+        close(fds[0]);
+        close(fds[1]);
+        errno = saved;
+        return -1;
+    }
+    return 0;
+}
+
 int noren_socket_read(
     int fd,
     uint8_t *buffer,
@@ -146,7 +185,7 @@ int noren_socket_read(
     }
     *read_count = 0;
     if (result == 0) return NOREN_SOCKET_EOF;
-    if (errno == EAGAIN || errno == EWOULDBLOCK) {
+    if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) {
         return NOREN_SOCKET_WOULD_BLOCK;
     }
     return -errno;
@@ -155,7 +194,11 @@ int noren_socket_read(
 int noren_socket_write_all(int fd, const uint8_t *buffer, size_t length) {
     size_t offset = 0;
     while (offset < length) {
-        const ssize_t result = write(fd, buffer + offset, length - offset);
+        const ssize_t result = socket_write_no_signal(
+            fd,
+            buffer + offset,
+            length - offset
+        );
         if (result > 0) {
             offset += (size_t)result;
             continue;
@@ -172,7 +215,7 @@ int noren_socket_write_some(
     size_t length,
     size_t *write_count
 ) {
-    const ssize_t result = write(fd, buffer, length);
+    const ssize_t result = socket_write_no_signal(fd, buffer, length);
     if (result > 0) {
         *write_count = (size_t)result;
         return NOREN_SOCKET_OK;

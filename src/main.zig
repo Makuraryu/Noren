@@ -2,8 +2,12 @@ const std = @import("std");
 const noren = @import("noren");
 
 pub fn main(init: std.process.Init) !void {
-    const allocator = init.arena.allocator();
+    // The Init arena is appropriate for process-start data, but Noren's
+    // Server can live for days. Using it for runtime frames and renders would
+    // make every logical free a no-op and grow memory until process exit.
+    const allocator = std.heap.smp_allocator;
     const args = try init.minimal.args.toSlice(allocator);
+    defer allocator.free(args);
 
     var stdout_buffer: [4096]u8 = undefined;
     var stdout_file_writer: std.Io.File.Writer = .init(.stdout(), init.io, &stdout_buffer);
@@ -40,7 +44,8 @@ fn run(
     stdout: *std.Io.Writer,
     stderr: *std.Io.Writer,
 ) !u8 {
-    const command = if (args.len > 1) args[1] else "new";
+    const invocation = noren.cli.arguments.parse(args);
+    const command = invocation.command;
 
     if (std.mem.eql(u8, command, "version") or std.mem.eql(u8, command, "--version")) {
         try stdout.writeAll("noren 0.4.3 (M4)\n");
@@ -57,6 +62,7 @@ fn run(
             \\horizontal Panes/Workspaces: enabled
             \\Nord capsule status/Session rename: enabled
             \\interactive prefix menu/continuous adjustment: enabled
+            \\cursor sync/mouse Pane selection: enabled
             \\
         );
         return 0;
@@ -70,13 +76,20 @@ fn run(
     if (std.mem.eql(u8, command, "new") or
         std.mem.eql(u8, command, "new-session"))
     {
-        return runNew(allocator, io, environ, args[0], args[2..], stderr);
+        return runNew(
+            allocator,
+            io,
+            environ,
+            invocation.executable,
+            invocation.command_args,
+            stderr,
+        );
     }
     if (std.mem.eql(u8, command, "attach")) {
-        return runAttach(allocator, environ, args[2..], stderr);
+        return runAttach(allocator, environ, invocation.command_args, stderr);
     }
     if (std.mem.eql(u8, command, "__server")) {
-        return runServer(allocator, environ, args[2..], stderr);
+        return runServer(allocator, environ, invocation.command_args, stderr);
     }
     if (std.mem.eql(u8, command, "help") or std.mem.eql(u8, command, "--help")) {
         try printHelp(stdout);
@@ -110,6 +123,7 @@ fn printHelp(writer: *std.Io.Writer) !void {
         \\  h/l            scroll camera by 1 cell (repeat directly)
         \\  [/]            narrow/widen Pane by 5 cells (repeat directly)
         \\  n/,/d          create Workspace/rename Session/detach
+        \\  mouse click    focus Pane; forward content clicks when app opts in
         \\
     );
 }

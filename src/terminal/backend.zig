@@ -11,6 +11,16 @@ pub const Cursor = struct {
     visible: bool,
 };
 
+pub const MouseEvent = struct {
+    row: u16,
+    col: u16,
+    button: u8,
+    pressed: bool,
+    shift: bool = false,
+    alt: bool = false,
+    ctrl: bool = false,
+};
+
 pub const TerminalBackend = struct {
     handle: *c.NorenVTerm,
     rows: u16,
@@ -93,6 +103,21 @@ pub const TerminalBackend = struct {
         };
     }
 
+    pub fn mouse(self: *TerminalBackend, event: MouseEvent) void {
+        var modifiers: c_int = 0;
+        if (event.shift) modifiers |= c.NOREN_MOD_SHIFT;
+        if (event.alt) modifiers |= c.NOREN_MOD_ALT;
+        if (event.ctrl) modifiers |= c.NOREN_MOD_CTRL;
+        c.noren_vterm_mouse(
+            self.handle,
+            event.row,
+            event.col,
+            event.button,
+            @intFromBool(event.pressed),
+            modifiers,
+        );
+    }
+
     pub fn title(self: *const TerminalBackend) []const u8 {
         return std.mem.span(c.noren_vterm_title(self.handle));
     }
@@ -145,6 +170,42 @@ test "libvterm backend keeps alternate and main screens separate" {
     try std.testing.expectEqualStrings("a", backend.cellAt(0, 0).grapheme.slice());
     try backend.feed("\x1b[?1049l");
     try std.testing.expectEqualStrings("m", backend.cellAt(0, 0).grapheme.slice());
+}
+
+test "libvterm backend tracks cursor visibility property changes" {
+    var backend = try TerminalBackend.init(3, 8);
+    defer backend.deinit();
+    try std.testing.expect(backend.cursor().visible);
+    try backend.feed("\x1b[?25l");
+    try std.testing.expect(!backend.cursor().visible);
+    try std.testing.expect(backend.takeDamage());
+    try backend.feed("\x1b[?25h");
+    try std.testing.expect(backend.cursor().visible);
+    try std.testing.expect(backend.takeDamage());
+}
+
+test "libvterm backend emits mouse input only when the app enables it" {
+    var backend = try TerminalBackend.init(4, 12);
+    defer backend.deinit();
+    var output: [64]u8 = undefined;
+
+    backend.mouse(.{ .row = 1, .col = 2, .button = 1, .pressed = true });
+    try std.testing.expectEqual(@as(usize, 0), backend.takeOutput(&output).len);
+    backend.mouse(.{ .row = 1, .col = 2, .button = 1, .pressed = false });
+    try std.testing.expectEqual(@as(usize, 0), backend.takeOutput(&output).len);
+
+    try backend.feed("\x1b[?1000h\x1b[?1006h");
+    backend.mouse(.{
+        .row = 1,
+        .col = 2,
+        .button = 1,
+        .pressed = true,
+        .ctrl = true,
+    });
+    try std.testing.expectEqualStrings(
+        "\x1b[<16;3;2M",
+        backend.takeOutput(&output),
+    );
 }
 
 test "libvterm blank cells occupy one rendered column" {

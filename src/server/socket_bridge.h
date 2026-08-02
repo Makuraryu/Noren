@@ -14,6 +14,7 @@ int noren_socket_listen(const char *path);
 int noren_socket_prepare(const char *path);
 int noren_socket_accept(int listener);
 int noren_socket_connect(const char *path);
+int noren_socket_pair(int fds[2]);
 int noren_socket_read(
     int fd,
     uint8_t *buffer,

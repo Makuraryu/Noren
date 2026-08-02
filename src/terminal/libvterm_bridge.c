@@ -39,6 +39,11 @@ static int on_move_cursor(
 
 static int on_term_property(VTermProp property, VTermValue *value, void *user) {
     NorenVTerm *terminal = user;
+    if (property == VTERM_PROP_CURSORVISIBLE) {
+        terminal->cursor_visible = value->boolean;
+        terminal->damaged = 1;
+        return 1;
+    }
     if (property != VTERM_PROP_TITLE) {
         return 1;
     }
@@ -218,6 +223,24 @@ void noren_vterm_get_cursor(
     if (row != NULL) *row = terminal->cursor_row;
     if (col != NULL) *col = terminal->cursor_col;
     if (visible != NULL) *visible = terminal->cursor_visible;
+}
+
+void noren_vterm_mouse(
+    NorenVTerm *terminal,
+    int row,
+    int col,
+    int button,
+    int pressed,
+    int modifiers
+) {
+    if (terminal == NULL || row < 0 || col < 0 || button < 1) {
+        return;
+    }
+    const VTermModifier modifier = (VTermModifier)(
+        modifiers & VTERM_ALL_MODS_MASK
+    );
+    vterm_mouse_move(terminal->terminal, row, col, modifier);
+    vterm_mouse_button(terminal->terminal, button, pressed != 0, modifier);
 }
 
 size_t noren_vterm_read_output(

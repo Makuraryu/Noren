@@ -1,0 +1,35 @@
+#!/usr/bin/expect -f
+set timeout 15
+log_user 1
+log_file -noappend $env(NOREN_E2E_ABRUPT_CAPTURE)
+
+# Keep the child producing output while its client disappears. This exercises
+# the server's closed-socket write path, which must never terminate on SIGPIPE.
+spawn -noecho /bin/sh -c {
+    stty rows 24 cols 80
+    exec "$NOREN_E2E_BIN" new -s abrupt -- /bin/sh -c \
+        'while :; do printf x; sleep 0.01; done'
+}
+after 700
+set first_client [exp_pid]
+exec kill -KILL $first_client
+expect eof
+catch wait
+
+after 500
+spawn -noecho /bin/sh -c {
+    stty rows 24 cols 80
+    exec "$NOREN_E2E_BIN" attach -t abrupt
+}
+expect -re {session:abrupt}
+
+# A successful reattach proves that the Session server survived the abrupt
+# peer close. Closing the Pane also verifies the PTY cleanup path.
+send -- "\002x"
+expect eof
+set result [wait]
+set exit_code [lindex $result 3]
+if {$exit_code != 0} {
+    puts stderr "reattach after abrupt disconnect exited with status $exit_code"
+    exit $exit_code
+}

@@ -174,7 +174,7 @@ int noren_pty_read(
     if (result == 0 || errno == EIO) {
         return NOREN_IO_EOF;
     }
-    if (errno == EAGAIN || errno == EWOULDBLOCK) {
+    if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) {
         return NOREN_IO_WOULD_BLOCK;
     }
     return -errno;
@@ -187,12 +187,13 @@ int noren_pty_write(
     size_t *write_count
 ) {
     const ssize_t result = write(master_fd, buffer, length);
-    if (result >= 0) {
+    if (result > 0) {
         *write_count = (size_t)result;
         return NOREN_IO_OK;
     }
     *write_count = 0;
-    if (errno == EAGAIN || errno == EWOULDBLOCK) {
+    if (result == 0 || errno == EAGAIN || errno == EWOULDBLOCK ||
+        errno == EINTR) {
         return NOREN_IO_WOULD_BLOCK;
     }
     return -errno;
@@ -231,6 +232,9 @@ int noren_pty_wait(int root_pid, int *status, int no_hang) {
     }
     if (errno == ECHILD) {
         return 1;
+    }
+    if (errno == EINTR) {
+        return 0;
     }
     return -errno;
 }

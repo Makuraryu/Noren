@@ -179,3 +179,15 @@ pub fn defaultSocketPath(allocator: std.mem.Allocator) ![]u8 {
         .{ temporary, c.noren_user_id() },
     );
 }
+
+test "writing to a closed socket peer returns an error instead of terminating" {
+    var fds: [2]c_int = undefined;
+    try std.testing.expectEqual(@as(c_int, 0), c.noren_socket_pair(&fds));
+    var stream: Stream = .{ .fd = fds[0] };
+    defer stream.close();
+    _ = c.noren_socket_close(fds[1]);
+    try std.testing.expectError(
+        error.ConnectionWriteFailed,
+        stream.writeSome("closed"),
+    );
+}

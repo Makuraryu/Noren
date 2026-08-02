@@ -155,6 +155,7 @@ int noren_raw_read(uint8_t *buffer, size_t capacity, size_t *read_count) {
         return 0;
     }
     *read_count = 0;
+    if (errno == EINTR) return 0;
     return errno;
 }
 

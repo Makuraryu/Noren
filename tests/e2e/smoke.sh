@@ -12,7 +12,9 @@ detach_capture_file=$(mktemp "${TMPDIR:-/tmp}/noren-detach-e2e.XXXXXX")
 detach_stdout_file=$(mktemp "${TMPDIR:-/tmp}/noren-detach-e2e-stdout.XXXXXX")
 multi_capture_file=$(mktemp "${TMPDIR:-/tmp}/noren-multi-e2e.XXXXXX")
 multi_stdout_file=$(mktemp "${TMPDIR:-/tmp}/noren-multi-e2e-stdout.XXXXXX")
-trap 'rm -f "$capture_file" "$stdout_file" "$nvim_capture_file" "$nvim_stdout_file" "$detach_capture_file" "$detach_stdout_file" "$multi_capture_file" "$multi_stdout_file"; rm -rf "$runtime_dir"' EXIT HUP INT TERM
+abrupt_capture_file=$(mktemp "${TMPDIR:-/tmp}/noren-abrupt-e2e.XXXXXX")
+abrupt_stdout_file=$(mktemp "${TMPDIR:-/tmp}/noren-abrupt-e2e-stdout.XXXXXX")
+trap 'rm -f "$capture_file" "$stdout_file" "$nvim_capture_file" "$nvim_stdout_file" "$detach_capture_file" "$detach_stdout_file" "$multi_capture_file" "$multi_stdout_file" "$abrupt_capture_file" "$abrupt_stdout_file"; rm -rf "$runtime_dir"' EXIT HUP INT TERM
 
 export NOREN_E2E_BIN="$noren_bin"
 export TMPDIR="$runtime_dir"
@@ -76,6 +78,14 @@ if command -v nvim >/dev/null 2>&1 && command -v expect >/dev/null 2>&1; then
     strings "$multi_capture_file" | grep -q 'session:multi-renamed'
     if strings "$multi_capture_file" | grep -q 'noren:'; then
         printf 'multi-Pane/Workspace lifecycle produced a runtime error\n' >&2
+        exit 1
+    fi
+
+    export NOREN_E2E_ABRUPT_CAPTURE="$abrupt_capture_file"
+    expect "$e2e_dir/abrupt_disconnect.exp" >"$abrupt_stdout_file"
+    strings "$abrupt_capture_file" | grep -q 'session:abrupt'
+    if strings "$abrupt_capture_file" | grep -q 'noren:'; then
+        printf 'abrupt disconnect produced a Noren runtime error\n' >&2
         exit 1
     fi
 fi

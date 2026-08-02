@@ -1,6 +1,9 @@
 # Implementation status
 
 Version 0.4.3 completes the specification's M0 through M4 milestones.
+The current development tree additionally includes cursor synchronization,
+Pane selection by mouse, application-aware mouse forwarding and runtime
+disconnect hardening.
 
 | Area | Status | Notes |
 | --- | --- | --- |
@@ -19,6 +22,9 @@ Version 0.4.3 completes the specification's M0 through M4 milestones.
 | Interactive Workspaces | Complete M4 | Independent focus/camera and auto removal |
 | Nord capsule status | Complete | Normal info and Nerd Font prefix-key menus |
 | Session rename | Complete | Interactive rename and new attach target |
+| Cursor visibility | Complete | Follows libvterm cursor-visible property |
+| Mouse clicks | Complete | Pane focus plus opt-in child-app forwarding |
+| Long-runtime hardening | Complete | Reclaiming allocator, SIGPIPE-safe writes, reconnect E2E |
 | Multi-client and Session switching | Planned M5 | Current Server owns one Session/Client |
 
 The M4 runtime supports one persistent Session with multiple interactive Panes

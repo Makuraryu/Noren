@@ -71,12 +71,24 @@ all Pane children → PTYs → libvterm surfaces → horizontal placement/compos
                                             bounded NRN1 output queue ↓
 outer TTY ← ANSI bytes ← Unix socket ← Server
 outer TTY → prefix router → structured Action or bounded Pane input → PTY
+outer mouse click → layout hit-test → stable Pane ID → focus Action
+                                      └→ content coordinates → libvterm → PTY
 ```
 
 The outer terminal never receives child ANSI directly. Server socket writes
 are non-blocking and capped, so slow clients cannot stop PTY draining. A signal
 self-pipe wakes the client for resize and termination; terminal restoration is
-one idempotent cleanup path.
+one idempotent cleanup path. Mouse input is decoded at the outer terminal,
+resolved against immutable layout placements, and identifies Panes by stable
+ID. libvterm emits child mouse bytes only when that application has enabled a
+supported terminal mouse mode.
+
+Connected sockets suppress `SIGPIPE`; interrupted reads/writes are retried or
+returned to the reactor, and Pane EOF/write failures are isolated to that Pane.
+An abruptly killed client therefore releases its connection without ending the
+Server-owned Session. Runtime allocations use a reclaiming allocator; the
+process-start Arena is deliberately excluded from the long-lived reactor so
+temporary frames, JSON payloads and render buffers can actually be freed.
 
 Every Pane remains registered with the multi-fd reactor whether visible,
 clipped, or in a background Workspace. Close deadlines share that reactor and

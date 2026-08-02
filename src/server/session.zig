@@ -7,6 +7,7 @@ const pty_mod = @import("../os/pty.zig");
 const terminal_mod = @import("../terminal/backend.zig");
 const session_render = @import("../render/session.zig");
 const layout_workspace = @import("../layout/workspace.zig");
+const placement_mod = @import("../layout/placement.zig");
 const ids = @import("../core/ids.zig");
 const model_mod = @import("../core/model.zig");
 const action_mod = @import("../core/action.zig");
@@ -227,7 +228,13 @@ pub fn run(allocator: std.mem.Allocator, options: Options) !void {
                 },
                 .pane => |pane_id| if (event.read) {
                     if (panes.getPtr(pane_id)) |pane| {
-                        try drainPane(allocator, pane);
+                        drainPane(allocator, pane) catch |err| {
+                            std.debug.print(
+                                "noren: Pane read failed: {s}\n",
+                                .{@errorName(err)},
+                            );
+                            pane.pty_eof = true;
+                        };
                     }
                 },
             }
@@ -236,7 +243,13 @@ pub fn run(allocator: std.mem.Allocator, options: Options) !void {
         var runtime_iterator = panes.iterator();
         while (runtime_iterator.next()) |entry| {
             if (!entry.value_ptr.pty_eof) {
-                try flushPaneInput(entry.value_ptr);
+                flushPaneInput(entry.value_ptr) catch |err| {
+                    std.debug.print(
+                        "noren: Pane input failed: {s}\n",
+                        .{@errorName(err)},
+                    );
+                    entry.value_ptr.input.consume(entry.value_ptr.input.len());
+                };
             }
             if (entry.value_ptr.backend.takeDamage()) render_needed = true;
         }
@@ -253,7 +266,13 @@ pub fn run(allocator: std.mem.Allocator, options: Options) !void {
         while (wait_iterator.next()) |entry| {
             const runtime = entry.value_ptr;
             if (!runtime.child_reaped) {
-                switch (try runtime.pty.wait(true)) {
+                switch (runtime.pty.wait(true) catch |err| {
+                    std.debug.print(
+                        "noren: Pane wait failed: {s}\n",
+                        .{@errorName(err)},
+                    );
+                    continue;
+                }) {
                     .running => {},
                     .exited => runtime.child_reaped = true,
                 }
@@ -506,6 +525,25 @@ fn handleMessage(
             const runtime = panes.getPtr(pane_id) orelse return;
             try runtime.input.append(allocator, message.payload);
         },
+        .input_event => if (attached.*) {
+            var parsed = try control.decode(
+                control.MouseInput,
+                allocator,
+                message.payload,
+            );
+            defer parsed.deinit();
+            try handleMouseInput(
+                allocator,
+                model,
+                session_id,
+                panes,
+                options,
+                outer_cols.*,
+                outer_rows.*,
+                parsed.value,
+            );
+            render_needed.* = true;
+        },
         .command_request => if (attached.*) {
             var parsed = try control.decode(control.Command, allocator, message.payload);
             defer parsed.deinit();
@@ -665,6 +703,83 @@ fn handleCommand(
         options,
         action,
     );
+}
+
+fn handleMouseInput(
+    allocator: std.mem.Allocator,
+    model: *model_mod.ServerModel,
+    session_id: ids.SessionId,
+    panes: *std.AutoHashMapUnmanaged(ids.PaneId, PaneRuntime),
+    options: Options,
+    viewport_width: u16,
+    outer_rows: u16,
+    event: control.MouseInput,
+) !void {
+    if (event.x >= viewport_width or event.y >= outer_rows -| 1 or
+        event.button == 0 or event.button > 7) return;
+    const session = model.sessions.get(session_id) orelse
+        return error.SessionNotFound;
+    const workspace = model.activeWorkspace(session_id) orelse
+        return error.WorkspaceNotFound;
+    const snapshot = try layout_workspace.snapshotFromModel(
+        allocator,
+        model,
+        workspace,
+    );
+    defer allocator.free(snapshot.panes);
+    var placements = try layout_workspace.placeWorkspace(
+        allocator,
+        snapshot,
+        .{
+            .x = 0,
+            .y = 0,
+            .width = viewport_width,
+            .height = @min(outer_rows -| 1, session.canonical_outer_rows),
+        },
+    );
+    defer placements.deinit(allocator);
+
+    const screen_x: i32 = event.x;
+    const screen_y: i32 = event.y;
+    var target: ?placement_mod.Placement = null;
+    for (placements.items) |placement| {
+        if (placement.contains(screen_x, screen_y)) {
+            target = placement;
+            break;
+        }
+    }
+    const placement = target orelse return;
+
+    if (event.button == 1 and event.pressed and
+        workspace.panes.items[workspace.focused_pane] != placement.pane_id)
+    {
+        try dispatch(
+            allocator,
+            model,
+            panes,
+            options,
+            .{ .select_pane = .{
+                .session_id = session_id,
+                .pane_id = placement.pane_id,
+                .viewport_width = viewport_width,
+            } },
+        );
+    }
+
+    const content = placement.contentPoint(screen_x, screen_y) orelse return;
+    const runtime = panes.getPtr(placement.pane_id) orelse return;
+    if (content.col >= runtime.backend.cols or
+        content.row >= runtime.backend.rows) return;
+    runtime.backend.mouse(.{
+        .row = content.row,
+        .col = content.col,
+        .button = event.button,
+        .pressed = event.pressed,
+        .shift = event.shift,
+        .alt = event.alt,
+        .ctrl = event.ctrl,
+    });
+    try queueTerminalOutput(allocator, runtime);
 }
 
 fn dispatch(
@@ -952,12 +1067,7 @@ fn drainPane(allocator: std.mem.Allocator, pane: *PaneRuntime) !void {
             .data => |bytes| {
                 budget += bytes.len;
                 try pane.backend.feed(bytes);
-                var response: [4096]u8 = undefined;
-                while (true) {
-                    const bytes_out = pane.backend.takeOutput(&response);
-                    if (bytes_out.len == 0) break;
-                    try pane.input.append(allocator, bytes_out);
-                }
+                try queueTerminalOutput(allocator, pane);
             },
             .would_block => break,
             .eof => {
@@ -965,6 +1075,21 @@ fn drainPane(allocator: std.mem.Allocator, pane: *PaneRuntime) !void {
                 break;
             },
         }
+    }
+}
+
+fn queueTerminalOutput(
+    allocator: std.mem.Allocator,
+    pane: *PaneRuntime,
+) !void {
+    var response: [4096]u8 = undefined;
+    while (true) {
+        const bytes = pane.backend.takeOutput(&response);
+        if (bytes.len == 0) return;
+        pane.input.append(allocator, bytes) catch |err| switch (err) {
+            error.QueueFull => return,
+            else => return err,
+        };
     }
 }
 

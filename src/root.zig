@@ -14,6 +14,9 @@ pub const core = struct {
 };
 
 pub const config = @import("config/config.zig");
+pub const cli = struct {
+    pub const arguments = @import("cli/arguments.zig");
+};
 pub const layout = struct {
     pub const placement = @import("layout/placement.zig");
     pub const workspace = @import("layout/workspace.zig");
@@ -35,6 +38,7 @@ pub const render = struct {
 };
 pub const input = struct {
     pub const prefix = @import("input/prefix.zig");
+    pub const mouse = @import("input/mouse.zig");
 };
 pub const os = struct {
     pub const pty = @import("os/pty.zig");
@@ -59,6 +63,7 @@ test {
     _ = core.reducer;
     _ = core.bounded_queue;
     _ = config;
+    _ = cli.arguments;
     _ = layout.placement;
     _ = layout.workspace;
     _ = layout.reveal;
@@ -71,6 +76,7 @@ test {
     _ = render.ansi;
     _ = render.session;
     _ = input.prefix;
+    _ = input.mouse;
     _ = os.pty;
     _ = client.raw_mode;
     _ = client.interactive;

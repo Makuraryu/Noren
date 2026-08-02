@@ -8,6 +8,19 @@ persistent Server, horizontal Pane and Workspace milestones** from
 It runs a shell or command in a Server-owned PTY, parses terminal output with
 pinned libvterm, and lets a client detach and later recover the latest screen.
 
+## Unreleased changes after 0.4.3
+
+- The child application's cursor visibility now follows its terminal state.
+- A left mouse click focuses the Pane under the pointer. When the child
+  application enables terminal mouse reporting, clicks inside Pane content are
+  translated to its coordinates and forwarded using the protocol it requested.
+- Socket and PTY I/O tolerate interrupted system calls, zero-byte writes,
+  exited children and abruptly disconnected clients without taking down the
+  Session server.
+- The long-lived Server uses a reclaiming allocator rather than a process
+  Arena, preventing transient frames and renders from accumulating forever.
+- Running `noren` without arguments safely follows the default `new` path.
+
 ## What works in 0.4.3
 
 - Monotonic stable IDs for Sessions, Workspaces, Panes, Clients, Layers and
@@ -163,6 +176,12 @@ Unimplemented reserved prefix commands ring the terminal bell.
 Pane width is absolute and independent. Changing the focused Pane with `[`/`]`
 does not squeeze or resize neighboring Panes; the horizontal camera moves only
 when necessary to keep the focus visible.
+
+A left click on a visible Pane selects it. A border click only changes Pane
+focus. A content click is additionally forwarded to applications that enable
+terminal mouse support, such as Neovim with mouse input enabled; applications
+that do not request mouse input receive no escape-sequence garbage. Noren
+captures click events only, not pointer motion or drag events.
 
 Attach and detach operate at Session scope. A Client attaches to one Session
 and sees that Session's active Workspace and all of its Pane state. Detaching

@@ -20,6 +20,12 @@ enum {
     NOREN_COLOR_RGB = 2,
 };
 
+enum {
+    NOREN_MOD_SHIFT = 1 << 0,
+    NOREN_MOD_ALT = 1 << 1,
+    NOREN_MOD_CTRL = 1 << 2,
+};
+
 typedef struct {
     uint8_t kind;
     uint8_t first;
@@ -50,6 +56,14 @@ void noren_vterm_get_cursor(
     int *row,
     int *col,
     int *visible
+);
+void noren_vterm_mouse(
+    NorenVTerm *terminal,
+    int row,
+    int col,
+    int button,
+    int pressed,
+    int modifiers
 );
 size_t noren_vterm_read_output(
     NorenVTerm *terminal,

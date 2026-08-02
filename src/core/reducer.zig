@@ -52,6 +52,7 @@ pub fn apply(
         .pane_drained => |pane_id| try removePane(allocator, server, pane_id),
         .resize_pane => |data| try resizePane(allocator, server, data, effects),
         .focus_pane => |data| try focusPane(server, data),
+        .select_pane => |data| try selectPane(server, data),
         .scroll_camera => |data| try scrollCamera(server, data),
         .new_workspace => |data| try newWorkspace(allocator, server, data, effects),
         .focus_workspace => |data| try focusWorkspace(server, data.session_id, data.direction),
@@ -299,6 +300,18 @@ fn focusPane(server: *model.ServerModel, data: action_mod.FocusPane) !void {
         else => return error.InvalidDirection,
     }
     revealFocused(server, workspace, data.viewport_width, data.direction);
+}
+
+fn selectPane(server: *model.ServerModel, data: action_mod.SelectPane) !void {
+    const workspace = server.activeWorkspace(data.session_id) orelse
+        return error.SessionNotFound;
+    for (workspace.panes.items, 0..) |pane_id, index| {
+        if (pane_id != data.pane_id) continue;
+        workspace.focused_pane = index;
+        revealFocused(server, workspace, data.viewport_width, null);
+        return;
+    }
+    return error.PaneNotFound;
 }
 
 fn scrollCamera(
@@ -713,6 +726,40 @@ test "camera scroll moves one cell and clamps to workspace bounds" {
         @as(i64, 0),
         server.activeWorkspace(session_id).?.camera_x,
     );
+}
+
+test "select pane focuses a stable Pane ID for mouse input" {
+    const allocator = std.testing.allocator;
+    var server = model.ServerModel.init();
+    defer server.deinit(allocator);
+    const session_id = try server.createSession(allocator, "work", 80, 24);
+    var effects: std.ArrayList(effect_mod.Effect) = .empty;
+    defer effects.deinit(allocator);
+    try apply(
+        allocator,
+        &server,
+        .{ .server = {} },
+        .{ .new_pane = .{
+            .session_id = session_id,
+            .outer_width = 40,
+            .viewport_width = 80,
+        } },
+        &effects,
+    );
+    const workspace = server.activeWorkspace(session_id).?;
+    const first = workspace.panes.items[0];
+    try apply(
+        allocator,
+        &server,
+        .{ .server = {} },
+        .{ .select_pane = .{
+            .session_id = session_id,
+            .pane_id = first,
+            .viewport_width = 80,
+        } },
+        &effects,
+    );
+    try std.testing.expectEqual(@as(usize, 0), workspace.focused_pane);
 }
 
 test "non-owner resize never changes canonical pane rows" {
