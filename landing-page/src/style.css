@@ -66,7 +66,7 @@ button { font: inherit; }
   justify-content: space-between;
   padding: 0.55rem 0.65rem 0.55rem 1rem;
   border: 1px solid var(--line);
-  border-radius: 1rem;
+  border-radius: 0.6rem;
   color: var(--ink);
   background: rgba(35, 42, 52, 0.82);
   box-shadow: 0 12px 34px rgba(12, 16, 22, 0.18);
@@ -120,7 +120,7 @@ button { font: inherit; }
   gap: 0.5rem;
   padding: 0.65rem 0.9rem;
   border: 1px solid var(--line);
-  border-radius: 0.7rem;
+  border-radius: 0.45rem;
   color: var(--ink);
   background: rgba(226, 235, 242, 0.1);
   transition: background 160ms ease, border-color 160ms ease, transform 160ms ease;
@@ -222,7 +222,7 @@ h1 em {
   gap: 0.75rem;
   padding: 0.85rem 1.15rem;
   border: 1px solid transparent;
-  border-radius: 0.75rem;
+  border-radius: 0.45rem;
   font-size: 0.9rem;
   font-weight: 620;
   transition: transform 160ms ease, background 160ms ease, border-color 160ms ease;
@@ -296,7 +296,7 @@ h1 em {
   min-width: 0;
   overflow: hidden;
   border: 1px solid rgba(226, 235, 242, 0.26);
-  border-radius: 1.05rem;
+  border-radius: 0.7rem;
   color: var(--ink-soft);
   background: var(--terminal-deep);
   box-shadow: var(--shadow), 0 0 0 1px rgba(15, 19, 25, 0.36);
@@ -351,7 +351,7 @@ h1 em {
   position: relative;
   overflow: hidden;
   border: 1px solid rgba(226, 235, 242, 0.27);
-  border-radius: 1.05rem;
+  border-radius: 0.7rem;
   color: var(--ink-soft);
   background: var(--terminal-deep);
   box-shadow: var(--shadow), 0 0 0 1px rgba(15, 19, 25, 0.36);
@@ -507,7 +507,7 @@ h1 em {
 .status-capsule {
   padding: 0.36rem 0.62rem;
   border: 1px solid rgba(226, 235, 242, 0.15);
-  border-radius: 0.55rem;
+  border-radius: 0.35rem;
   background: rgba(226, 235, 242, 0.07);
   white-space: nowrap;
 }
@@ -568,7 +568,7 @@ h1 em {
   overflow: hidden;
   padding: 0.55rem;
   border: 1px solid var(--line);
-  border-radius: 1.2rem;
+  border-radius: 0.85rem;
   background: rgba(226, 235, 242, 0.05);
   box-shadow: var(--shadow);
 }
@@ -577,7 +577,7 @@ h1 em {
   display: block;
   width: 100%;
   height: auto;
-  border-radius: 0.78rem;
+  border-radius: 0.58rem;
   box-shadow: 0 10px 34px rgba(12, 16, 22, 0.22);
 }
 
@@ -635,7 +635,7 @@ h2 {
   justify-content: center;
   margin-bottom: 5.5rem;
   border: 1px solid var(--line);
-  border-radius: 0.8rem;
+  border-radius: 0.5rem;
   color: var(--accent);
   background: rgba(226, 235, 242, 0.06);
   box-shadow: 0 10px 24px rgba(12, 16, 22, 0.14);
@@ -663,7 +663,7 @@ h2 {
   gap: 5rem;
   padding: 4.5rem;
   border: 1px solid var(--line);
-  border-radius: 1.35rem;
+  border-radius: 0.8rem;
   color: var(--ink);
   background: var(--surface);
   box-shadow: var(--shadow);
@@ -683,7 +683,7 @@ h2 {
   gap: 1rem;
   padding: 1.2rem 1.3rem;
   border: 1px solid var(--line);
-  border-radius: 0.8rem;
+  border-radius: 0.45rem;
   color: var(--ink);
   background: rgba(226, 235, 242, 0.06);
   cursor: pointer;
