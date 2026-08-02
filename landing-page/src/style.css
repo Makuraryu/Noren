@@ -149,11 +149,12 @@ button { font: inherit; }
 
 .hero {
   display: grid;
-  min-height: 52rem;
-  grid-template-columns: 0.76fr 1.24fr;
+  min-height: min(58rem, 100vh);
+  grid-template-columns: minmax(0, 0.84fr) minmax(0, 1.16fr);
   align-items: center;
-  gap: 3.5rem;
-  padding-top: 7.5rem;
+  gap: 5rem;
+  padding-top: 8rem;
+  padding-bottom: 4rem;
 }
 
 .eyebrow,
@@ -186,10 +187,10 @@ h3,
 p { margin-top: 0; }
 
 h1 {
-  max-width: 10ch;
+  max-width: 9ch;
   margin-bottom: 1.55rem;
   color: var(--ink);
-  font-size: clamp(3.5rem, 6.2vw, 6.4rem);
+  font-size: clamp(3.5rem, 6vw, 6rem);
   font-weight: 680;
   line-height: 0.94;
   letter-spacing: -0.075em;
@@ -253,6 +254,96 @@ h1 em {
   font-size: 0.7rem;
   letter-spacing: 0.02em;
 }
+
+.hero-install {
+  max-width: 31rem;
+  margin-top: 2.55rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--line);
+}
+
+.hero-install .section-kicker {
+  margin-bottom: 0.7rem;
+  color: var(--accent);
+}
+
+.hero-install .command { min-height: 4.25rem; }
+
+.hero-install > a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.8rem;
+  color: var(--muted);
+  font-size: 0.78rem;
+  transition: color 160ms ease;
+}
+
+.hero-install > a:hover { color: var(--ink); }
+
+.hero-install > a svg {
+  width: 1rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.5;
+}
+
+.hero-diagram { position: relative; width: min(100%, 43rem); min-width: 0; justify-self: end; }
+
+.diagram-window {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid rgba(226, 235, 242, 0.26);
+  border-radius: 1.05rem;
+  color: var(--ink-soft);
+  background: var(--terminal-deep);
+  box-shadow: var(--shadow), 0 0 0 1px rgba(15, 19, 25, 0.36);
+}
+
+.diagram-titlebar {
+  display: flex;
+  min-height: 3rem;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1rem;
+  border-bottom: 1px solid var(--line-soft);
+  color: var(--muted);
+  background: #262e38;
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+}
+
+.diagram-titlebar span:first-child { color: var(--ink-soft); font-weight: 600; }
+.diagram-titlebar span:last-child { color: var(--quiet); }
+
+.diagram-art {
+  min-height: 25rem;
+  margin: 0;
+  padding: 2rem 1.8rem 1.5rem;
+  overflow: auto;
+  color: var(--accent-strong);
+  background: var(--terminal);
+  font: 0.76rem/1.7 var(--mono);
+  letter-spacing: 0.01em;
+  white-space: pre;
+}
+
+.diagram-footer {
+  display: flex;
+  min-height: 2.5rem;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 0.85rem;
+  color: var(--muted);
+  background: #202831;
+  font: 0.64rem var(--mono);
+}
+
+.diagram-footer span:first-child { color: var(--accent); }
+.diagram-footer span:last-child { color: var(--success); }
 
 .terminal-scene { position: relative; width: min(100%, 48rem); justify-self: end; }
 
@@ -445,6 +536,64 @@ h1 em {
 
 .caption-line { height: 1px; flex: 1; background: var(--line); }
 
+.example {
+  padding-top: 8rem;
+  padding-bottom: 9rem;
+}
+
+.example-heading {
+  display: grid;
+  grid-template-columns: 0.72fr 1fr 0.86fr;
+  align-items: end;
+  gap: 2.5rem;
+  padding-bottom: 3rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.example-heading .section-kicker { margin-bottom: 0; }
+.example-heading h2 { margin-bottom: 0; }
+.example-heading h2 em { color: var(--accent); font-style: normal; font-weight: 430; }
+
+.example-heading > p:last-child {
+  max-width: 23rem;
+  margin-bottom: 0.25rem;
+  color: var(--muted);
+  font-size: 0.98rem;
+  line-height: 1.68;
+}
+
+.example-figure { margin: 3rem 0 0; }
+
+.example-image-frame {
+  overflow: hidden;
+  padding: 0.55rem;
+  border: 1px solid var(--line);
+  border-radius: 1.2rem;
+  background: rgba(226, 235, 242, 0.05);
+  box-shadow: var(--shadow);
+}
+
+.example-image-frame img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 0.78rem;
+  box-shadow: 0 10px 34px rgba(12, 16, 22, 0.22);
+}
+
+.example-figure figcaption {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 1rem;
+  color: var(--quiet);
+  font: 0.65rem var(--mono);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.example-figure figcaption span:first-child { color: var(--accent); }
+
 .why { padding-top: 8rem; padding-bottom: 8rem; }
 
 .section-heading {
@@ -578,7 +727,9 @@ footer p { margin: 0; }
 @media (max-width: 960px) {
   .hero { min-height: auto; grid-template-columns: 1fr; gap: 4.5rem; padding-top: 11rem; padding-bottom: 5rem; }
   .hero-copy { max-width: 43rem; }
-  .terminal-scene { width: 100%; justify-self: stretch; }
+  .hero-diagram { width: 100%; justify-self: stretch; }
+  .example-heading { grid-template-columns: 0.72fr 1fr; }
+  .example-heading > p:last-child { grid-column: 2; }
   .section-heading { display: block; }
   .section-heading .section-kicker { margin-bottom: 1.5rem; }
   .section-heading h2 { width: 100%; }
@@ -593,10 +744,20 @@ footer p { margin: 0; }
   .nav-github { min-height: 2.25rem; }
   .hero { gap: 3.5rem; padding-top: 9rem; }
   h1 { font-size: clamp(3.25rem, 15vw, 4.7rem); }
+  .hero-install { max-width: 100%; }
+  .diagram-art { min-height: 20rem; padding: 1.35rem 1rem 1.1rem; font-size: clamp(0.56rem, 2vw, 0.72rem); }
   .terminal-panes { min-height: 20rem; grid-template-columns: 0.72fr 1.28fr; }
   .pane-workspaces { display: none; }
   .terminal-pane { padding: 0.8rem; font-size: clamp(0.56rem, 2vw, 0.68rem); }
   .scene-caption { width: 90%; }
+  .example { padding-top: 5.5rem; padding-bottom: 5rem; }
+  .example-heading { display: block; padding-bottom: 2.5rem; }
+  .example-heading .section-kicker { margin-bottom: 1.5rem; }
+  .example-heading > p:last-child { margin-top: 1.5rem; }
+  .example-figure { margin-top: 2rem; }
+  .example-figure figcaption { display: block; line-height: 1.7; }
+  .example-figure figcaption span { display: block; }
+  .example-figure figcaption span + span { margin-top: 0.25rem; }
   .why { padding-top: 5.5rem; padding-bottom: 5rem; }
   .feature-grid { grid-template-columns: 1fr; }
   .feature-grid article,
@@ -614,6 +775,8 @@ footer p { margin: 0; }
 }
 
 @media (max-width: 500px) {
+  .diagram-art { min-height: 17rem; font-size: 0.5rem; }
+  .diagram-footer { font-size: 0.56rem; }
   .terminal-panes { grid-template-columns: 1fr; }
   .pane-shell { min-height: 8rem; }
   .pane-editor { min-height: 13rem; }

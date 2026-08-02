@@ -51,7 +51,8 @@ onUnmounted(() => {
         <span>Noren</span>
       </a>
       <nav>
-        <a href="#why">Why Noren</a>
+        <a href="#example">Example</a>
+        <a href="#why">Scrollable tiling</a>
         <a href="#install">Install</a>
         <a
           class="nav-github"
@@ -68,15 +69,15 @@ onUnmounted(() => {
     <main id="top">
       <section class="hero section-wrap">
         <div class="hero-copy" data-reveal>
-          <div class="eyebrow"><span></span> Terminal workspace, rethought</div>
-          <h1>Room for every<br /><em>train of thought.</em></h1>
+          <div class="eyebrow"><span></span> Scrollable tiling for terminal work</div>
+          <h1>Keep moving.<br /><em>Keep context.</em></h1>
           <p class="hero-lede">
-            Noren is a fast, horizontal terminal multiplexer that keeps your work alive and your context
-            within reach.
+            Noren is a terminal multiplexer built around scrollable tiling. Move through horizontal
+            workspaces without losing the process, pane, or thought you were in.
           </p>
           <div class="hero-actions">
             <a class="button button-primary" href="#install">
-              Get Noren
+              Install Noren
               <svg aria-hidden="true" viewBox="0 0 20 20"><path d="m5 8 5 5 5-5" /></svg>
             </a>
             <a
@@ -88,112 +89,8 @@ onUnmounted(() => {
               View source
             </a>
           </div>
-          <p class="platform-note">Open source · macOS &amp; Linux</p>
-        </div>
-
-        <div class="terminal-scene" data-reveal aria-label="Noren horizontal terminal workspace preview">
-          <div class="terminal-window">
-            <div class="terminal-titlebar">
-              <div class="traffic-lights" aria-hidden="true"><i></i><i></i><i></i></div>
-              <span class="terminal-window-title">noren attach</span>
-              <span class="terminal-title-meta">...</span>
-            </div>
-            <div class="terminal-panes">
-              <article class="terminal-pane pane-shell">
-                <p class="pane-label">~/Noren</p>
-                <div class="shell-prompt">
-                  <span class="prompt-mark">&gt;</span>
-                  <span>/Noren</span>
-                  <span class="prompt-help">?</span>
-                  <span class="prompt-dollar">$</span>
-                  <span class="prompt-command">nvim</span>
-                </div>
-                <div class="shell-ascii" aria-hidden="true">
-                  <span>+----------------+</span>
-                  <span>| work           |</span>
-                  <span>|                |</span>
-                  <span>+----------------+</span>
-                </div>
-              </article>
-              <article class="terminal-pane pane-editor">
-                <div class="editor-heading"><span class="editor-line-active">1</span><span>#</span><strong>Noren</strong></div>
-                <div class="editor-copy" aria-label="README preview">
-                  <p>Noren is a scrolling terminal multiplexer</p>
-                  <p>built around horizontal workspaces.</p>
-                  <p>&nbsp;</p>
-                  <p class="editor-muted">Your work keeps running.</p>
-                  <p class="editor-muted">Your context stays within reach.</p>
-                  <p>&nbsp;</p>
-                  <p><span class="editor-prompt">&gt;</span> attach --session work</p>
-                  <p class="editor-cursor"><span></span></p>
-                </div>
-              </article>
-              <article class="terminal-pane pane-workspaces">
-                <p class="pane-label">workspaces</p>
-                <div class="workspace-list">
-                  <div class="workspace-item is-active"><span>[1]</span><strong>work</strong><i>●</i></div>
-                  <div class="workspace-item"><span>[2]</span><strong>review</strong><i>○</i></div>
-                  <div class="workspace-item"><span>[3]</span><strong>notes</strong><i>○</i></div>
-                </div>
-              </article>
-            </div>
-            <div class="terminal-status">
-              <span class="status-capsule prefix">Ctrl+b</span>
-              <span class="status-capsule">session:work</span>
-              <span class="status-spacer"></span>
-              <span class="status-capsule">21:55</span>
-              <span class="status-capsule status-current">1:2</span>
-            </div>
-          </div>
-          <div class="scene-caption">
-            <span>One session</span>
-            <span class="caption-line"></span>
-            <span>Every pane in reach</span>
-          </div>
-        </div>
-      </section>
-
-      <section id="why" class="why section-wrap">
-        <div class="section-heading" data-reveal>
-          <p class="section-kicker">Less switching. More doing.</p>
-          <h2>Your terminal should follow<br />the shape of your work.</h2>
-        </div>
-        <div class="feature-grid">
-          <article data-reveal>
-            <div class="feature-icon icon-horizontal" aria-hidden="true">
-              <span></span><span></span><span></span>
-            </div>
-            <p class="feature-number">01</p>
-            <h3>Horizontal by design</h3>
-            <p>Move across panes and workspaces in one clear direction. Your mental map stays intact.</p>
-          </article>
-          <article data-reveal>
-            <div class="feature-icon icon-persist" aria-hidden="true">
-              <span></span><i></i>
-            </div>
-            <p class="feature-number">02</p>
-            <h3>Work keeps running</h3>
-            <p>Detach without disruption. Reconnect later and find every process exactly where you left it.</p>
-          </article>
-          <article data-reveal>
-            <div class="feature-icon icon-native" aria-hidden="true">
-              <svg viewBox="0 0 48 48"><path d="M26 4 10 27h13l-1 17 16-25H25l1-15Z" /></svg>
-            </div>
-            <p class="feature-number">03</p>
-            <h3>Native and immediate</h3>
-            <p>Built in Zig around real PTYs and libvterm for low overhead and responsive terminal I/O.</p>
-          </article>
-        </div>
-      </section>
-
-      <section id="install" class="install section-wrap">
-        <div class="install-panel" data-reveal>
-          <div class="install-copy">
+          <div id="install" class="hero-install">
             <p class="section-kicker">Start in one command</p>
-            <h2>Make some room.</h2>
-            <p>Install Noren with Homebrew, then open your first persistent workspace.</p>
-          </div>
-          <div class="command-area">
             <button
               class="command"
               type="button"
@@ -217,8 +114,96 @@ onUnmounted(() => {
               <svg aria-hidden="true" viewBox="0 0 16 16"><path d="M5 11 11 5M6 5h5v5" /></svg>
             </a>
           </div>
+          <p class="platform-note">Open source · macOS &amp; Linux</p>
+        </div>
+
+        <div class="hero-diagram" data-reveal aria-label="Scrollable tiling diagram">
+          <div class="diagram-window">
+            <div class="diagram-titlebar">
+              <span>noren attach</span>
+              <span>scrollable tiling</span>
+            </div>
+            <pre class="diagram-art" aria-hidden="true">╭─ work ─────────────────────────────────╮
+│ ~/Noren  ?  $ nvim                     │
+│                                        │
+│  persistent server                     │
+│  horizontal panes                      │
+╰────────────────────────────────────────╯
+       ⇆  scroll  ·  focus  ·  detach
+╭─ review ─────────────╮  ╭─ notes ─────╮
+│ tests                 │  │ ideas      │
+│ logs                  │  │ next       │
+╰──────────────────────╯  ╰────────────╯</pre>
+            <div class="diagram-footer">
+              <span>workspace:work</span>
+              <span>pane:1:2</span>
+            </div>
+          </div>
+          <div class="scene-caption">
+            <span>Scroll the work</span>
+            <span class="caption-line"></span>
+            <span>Keep the thread</span>
+          </div>
         </div>
       </section>
+
+      <section id="example" class="example section-wrap">
+        <div class="example-heading" data-reveal>
+          <p class="section-kicker">A real workspace</p>
+          <h2>The shape of Noren<br /><em>in the terminal.</em></h2>
+          <p>
+            One attach brings the whole session into view: a shell, an editor, and the workspaces you
+            move through every day.
+          </p>
+        </div>
+        <figure class="example-figure" data-reveal>
+          <div class="example-image-frame">
+            <img
+              src="/noren-attach-example.png"
+              alt="Noren attach showing a shell, Neovim editor, workspace list, and status bar."
+              loading="lazy"
+            />
+          </div>
+          <figcaption>
+            <span>noren attach</span>
+            <span>persistent server · horizontal panes · workspace navigation</span>
+          </figcaption>
+        </figure>
+      </section>
+
+      <section id="why" class="why section-wrap">
+        <div class="section-heading" data-reveal>
+          <p class="section-kicker">Scrollable tiling</p>
+          <h2>Pan across the work,<br />not away from it.</h2>
+        </div>
+        <div class="feature-grid">
+          <article data-reveal>
+            <div class="feature-icon icon-horizontal" aria-hidden="true">
+              <span></span><span></span><span></span>
+            </div>
+            <p class="feature-number">01</p>
+            <h3>Scroll the workspace</h3>
+            <p>Move across panes and workspaces in one clear direction. Your mental map stays intact.</p>
+          </article>
+          <article data-reveal>
+            <div class="feature-icon icon-persist" aria-hidden="true">
+              <span></span><i></i>
+            </div>
+            <p class="feature-number">02</p>
+            <h3>Keep sessions alive</h3>
+            <p>Detach without disruption. Reconnect later and find every process exactly where you left it.</p>
+          </article>
+          <article data-reveal>
+            <div class="feature-icon icon-native" aria-hidden="true">
+              <svg viewBox="0 0 48 48"><path d="M26 4 10 27h13l-1 17 16-25H25l1-15Z" /></svg>
+            </div>
+            <p class="feature-number">03</p>
+            <h3>Stay close to the terminal</h3>
+            <p>Built in Zig around real PTYs and libvterm for low overhead and responsive terminal I/O.</p>
+          </article>
+        </div>
+      </section>
+
     </main>
 
     <footer class="section-wrap">
