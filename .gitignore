@@ -5,3 +5,7 @@ zig-cache/
 zig-out/
 *.log
 
+# Local agent skill files
+.skill/
+.agents/
+skills-lock.json
