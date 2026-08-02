@@ -3,40 +3,92 @@ import { onMounted, onUnmounted, ref } from 'vue'
 
 const installCommand = 'brew install Makuraryu/tap/noren'
 const copied = ref(false)
+const pixelBlastCanvas = ref(null)
 let copyTimer
 let revealObserver
-let pointerFrame
-let pointerTracking = false
-let pointerTargetX = 0
-let pointerTargetY = 0
+let pixelContext
+let pixelFrame
+let pixelTracking = false
+let canvasWidth = 0
+let canvasHeight = 0
+const pixelPointer = {
+  x: 0,
+  y: 0,
+  intensity: 0,
+  targetIntensity: 0,
+}
 
-function applyPixelBlastPointer(x = 0, y = 0) {
-  const root = document.documentElement
-  root.style.setProperty('--pixel-blast-x', `${(x * 18).toFixed(2)}px`)
-  root.style.setProperty('--pixel-blast-y', `${(y * 14).toFixed(2)}px`)
-  root.style.setProperty('--pixel-blast-x-reverse', `${(x * -12).toFixed(2)}px`)
-  root.style.setProperty('--pixel-blast-y-reverse', `${(y * -9).toFixed(2)}px`)
+function pixelVariation(column, row) {
+  const value = Math.sin(column * 12.9898 + row * 78.233) * 43758.5453
+  return value - Math.floor(value)
+}
+
+function drawPixelBlast() {
+  if (!pixelContext || !canvasWidth || !canvasHeight) return
+
+  pixelContext.clearRect(0, 0, canvasWidth, canvasHeight)
+  const spacing = canvasWidth < 720 ? 18 : 22
+  const radius = Math.min(320, Math.max(210, Math.min(canvasWidth, canvasHeight) * 0.4))
+
+  for (let row = 0, y = spacing / 2; y < canvasHeight; row += 1, y += spacing) {
+    for (let column = 0, x = spacing / 2; x < canvasWidth; column += 1, x += spacing) {
+      const variation = pixelVariation(column, row)
+      const distance = Math.hypot(x - pixelPointer.x, y - pixelPointer.y)
+      const proximity = Math.max(0, 1 - distance / radius)
+      const glow = proximity * proximity * pixelPointer.intensity
+      const alpha = 0.032 + glow * (0.48 + variation * 0.36)
+      const size = 1.7 + variation * 1.2 + glow * (3.4 + variation * 1.5)
+
+      pixelContext.fillStyle = `rgba(202, 207, 212, ${alpha.toFixed(3)})`
+      pixelContext.fillRect(Math.round(x - size / 2), Math.round(y - size / 2), size, size)
+    }
+  }
+}
+
+function animatePixelBlast() {
+  pixelPointer.intensity += (pixelPointer.targetIntensity - pixelPointer.intensity) * 0.18
+  if (Math.abs(pixelPointer.targetIntensity - pixelPointer.intensity) < 0.01) {
+    pixelPointer.intensity = pixelPointer.targetIntensity
+  }
+
+  drawPixelBlast()
+  pixelFrame = undefined
+  if (pixelPointer.intensity !== pixelPointer.targetIntensity) schedulePixelBlast()
+}
+
+function schedulePixelBlast() {
+  if (!pixelFrame) pixelFrame = window.requestAnimationFrame(animatePixelBlast)
+}
+
+function resizePixelBlast() {
+  const canvas = pixelBlastCanvas.value
+  if (!canvas || !pixelContext) return
+
+  const pixelRatio = Math.min(window.devicePixelRatio || 1, 2)
+  canvasWidth = window.innerWidth
+  canvasHeight = window.innerHeight
+  canvas.width = Math.round(canvasWidth * pixelRatio)
+  canvas.height = Math.round(canvasHeight * pixelRatio)
+  pixelContext.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0)
+  if (!pixelPointer.x && !pixelPointer.y) {
+    pixelPointer.x = canvasWidth / 2
+    pixelPointer.y = canvasHeight / 2
+  }
+  drawPixelBlast()
 }
 
 function handlePointerMove(event) {
   if (event.pointerType && event.pointerType !== 'mouse') return
 
-  pointerTargetX = (event.clientX / window.innerWidth - 0.5) * 2
-  pointerTargetY = (event.clientY / window.innerHeight - 0.5) * 2
-  if (pointerFrame) return
-
-  pointerFrame = window.requestAnimationFrame(() => {
-    applyPixelBlastPointer(pointerTargetX, pointerTargetY)
-    pointerFrame = undefined
-  })
+  pixelPointer.x = event.clientX
+  pixelPointer.y = event.clientY
+  pixelPointer.targetIntensity = 1
+  schedulePixelBlast()
 }
 
 function resetPixelBlastPointer() {
-  if (pointerFrame) {
-    window.cancelAnimationFrame(pointerFrame)
-    pointerFrame = undefined
-  }
-  applyPixelBlastPointer()
+  pixelPointer.targetIntensity = 0
+  schedulePixelBlast()
 }
 
 async function copyInstallCommand() {
@@ -66,27 +118,35 @@ onMounted(() => {
 
   revealItems.forEach((item) => revealObserver.observe(item))
 
-  if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-    pointerTracking = true
+  pixelContext = pixelBlastCanvas.value?.getContext('2d', { alpha: true })
+  resizePixelBlast()
+  window.addEventListener('resize', resizePixelBlast, { passive: true })
+
+  if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches && pixelContext) {
+    pixelTracking = true
     window.addEventListener('pointermove', handlePointerMove, { passive: true })
     window.addEventListener('blur', resetPixelBlastPointer)
+    document.documentElement.addEventListener('mouseleave', resetPixelBlastPointer)
   }
 })
 
 onUnmounted(() => {
   revealObserver?.disconnect()
   window.clearTimeout(copyTimer)
-  if (pointerTracking) {
+  window.removeEventListener('resize', resizePixelBlast)
+  if (pixelTracking) {
     window.removeEventListener('pointermove', handlePointerMove)
     window.removeEventListener('blur', resetPixelBlastPointer)
-    resetPixelBlastPointer()
+    document.documentElement.removeEventListener('mouseleave', resetPixelBlastPointer)
   }
+  if (pixelFrame) window.cancelAnimationFrame(pixelFrame)
+  pixelContext = undefined
 })
 </script>
 
 <template>
   <div class="site-shell">
-    <div class="pixel-blast" aria-hidden="true"></div>
+    <canvas ref="pixelBlastCanvas" class="pixel-blast" aria-hidden="true"></canvas>
     <header class="site-header" aria-label="Primary navigation">
       <a class="wordmark" href="#top" aria-label="Noren home">
         <svg aria-hidden="true" viewBox="0 0 32 32">
