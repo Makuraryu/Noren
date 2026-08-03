@@ -2,7 +2,18 @@
 
 Noren is a scrollable tiling terminal multiplexer built around horizontal workspaces.
 
+![Noren demo: opening panes, moving through a horizontal workspace, detaching and reattaching](landing-page/public/noren-demo.gif)
+
+Open more panes without shrinking the ones already in view. Move across the
+horizontal strip, switch Workspaces, then detach and return with every process
+still running.
+
+<details>
+<summary>View the full workspace screenshot</summary>
+
 ![Noren running Vite, Neovim and multiple workspaces](landing-page/public/noren.png)
+
+</details>
 
 This repository contains Noren `0.4.4`, the completed **M0–M4
 persistent Server, horizontal Pane and Workspace milestones** from

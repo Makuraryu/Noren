@@ -4,11 +4,18 @@ import { onMounted, onUnmounted, ref } from 'vue'
 const installCommand = 'brew install Makuraryu/tap/noren'
 const copied = ref(false)
 const pixelBlastCanvas = ref(null)
+const demoVideo = ref(null)
+const demoPlaying = ref(false)
 let copyTimer
 let revealObserver
+let demoVisibilityObserver
+let motionPreference
 let pixelContext
 let pixelFrame
 let pixelTracking = false
+let demoVisible = false
+let demoUserPaused = false
+let demoManualPlay = false
 let canvasWidth = 0
 let canvasHeight = 0
 const pixelPointer = {
@@ -91,6 +98,52 @@ function resetPixelBlastPointer() {
   schedulePixelBlast()
 }
 
+function syncDemoPlayback() {
+  const video = demoVideo.value
+  if (!video) return
+
+  const reduceMotion = motionPreference?.matches ?? false
+  const shouldPlay = demoVisible && (!reduceMotion || demoManualPlay) && !demoUserPaused
+
+  if (shouldPlay) {
+    video.play().catch(() => {
+      demoPlaying.value = false
+    })
+  } else {
+    video.pause()
+  }
+}
+
+function toggleDemoPlayback() {
+  const video = demoVideo.value
+  if (!video) return
+
+  if (video.paused) {
+    demoUserPaused = false
+    demoManualPlay = true
+    video.play().catch(() => {
+      demoPlaying.value = false
+    })
+  } else {
+    demoUserPaused = true
+    demoManualPlay = false
+    video.pause()
+  }
+}
+
+function handleMotionPreferenceChange() {
+  demoManualPlay = false
+  syncDemoPlayback()
+}
+
+function handleDemoPlay() {
+  demoPlaying.value = true
+}
+
+function handleDemoPause() {
+  demoPlaying.value = false
+}
+
 async function copyInstallCommand() {
   try {
     await navigator.clipboard.writeText(installCommand)
@@ -103,6 +156,9 @@ async function copyInstallCommand() {
 }
 
 onMounted(() => {
+  motionPreference = window.matchMedia('(prefers-reduced-motion: reduce)')
+  motionPreference.addEventListener('change', handleMotionPreferenceChange)
+
   const revealItems = document.querySelectorAll('[data-reveal]')
   revealObserver = new IntersectionObserver(
     (entries) => {
@@ -118,11 +174,20 @@ onMounted(() => {
 
   revealItems.forEach((item) => revealObserver.observe(item))
 
+  demoVisibilityObserver = new IntersectionObserver(
+    ([entry]) => {
+      demoVisible = entry.isIntersecting
+      syncDemoPlayback()
+    },
+    { threshold: 0.25 },
+  )
+  if (demoVideo.value) demoVisibilityObserver.observe(demoVideo.value)
+
   pixelContext = pixelBlastCanvas.value?.getContext('2d', { alpha: true })
   resizePixelBlast()
   window.addEventListener('resize', resizePixelBlast, { passive: true })
 
-  if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches && pixelContext) {
+  if (!motionPreference.matches && pixelContext) {
     pixelTracking = true
     window.addEventListener('pointermove', handlePointerMove, { passive: true })
     window.addEventListener('blur', resetPixelBlastPointer)
@@ -132,6 +197,8 @@ onMounted(() => {
 
 onUnmounted(() => {
   revealObserver?.disconnect()
+  demoVisibilityObserver?.disconnect()
+  motionPreference?.removeEventListener('change', handleMotionPreferenceChange)
   window.clearTimeout(copyTimer)
   window.removeEventListener('resize', resizePixelBlast)
   if (pixelTracking) {
@@ -229,21 +296,44 @@ onUnmounted(() => {
           <p class="section-kicker">A real workspace</p>
           <h2>Noren<br /><em>in the terminal.</em></h2>
           <p>
-            One attach brings the whole session into view: a shell, an editor, and the workspaces you
-            move through every day.
+            Open panes without shrinking what is already there. Pan across the strip, switch
+            Workspaces, detach, and return with every process intact.
           </p>
         </div>
         <figure class="example-figure" data-reveal>
           <div class="example-image-frame">
-            <img
-              src="/noren.png"
-              alt="Noren showing a shell, Neovim editor, workspace list, and status bar."
-              loading="lazy"
-            />
+            <video
+              ref="demoVideo"
+              src="/noren-demo.mp4"
+              poster="/noren.png"
+              muted
+              loop
+              playsinline
+              preload="metadata"
+              aria-label="Noren demo showing panes opening across a horizontal workspace, followed by detach and reattach."
+              @play="handleDemoPlay"
+              @pause="handleDemoPause"
+            >
+              Your browser does not support embedded video.
+            </video>
+            <button
+              class="demo-control"
+              type="button"
+              :aria-label="demoPlaying ? 'Pause Noren demo' : 'Play Noren demo'"
+              @click="toggleDemoPlayback"
+            >
+              <svg v-if="demoPlaying" aria-hidden="true" viewBox="0 0 16 16">
+                <path d="M5 3v10M11 3v10" />
+              </svg>
+              <svg v-else aria-hidden="true" viewBox="0 0 16 16">
+                <path d="m5 3 8 5-8 5Z" />
+              </svg>
+              {{ demoPlaying ? 'Pause demo' : 'Play demo' }}
+            </button>
           </div>
           <figcaption>
-            <span>noren new</span>
-            <span>persistent server · horizontal panes · workspace navigation</span>
+            <span>32-second walkthrough</span>
+            <span>create panes · move horizontally · detach · reattach</span>
           </figcaption>
         </figure>
       </section>
